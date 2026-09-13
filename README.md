@@ -529,24 +529,6 @@ timeline
 
 ---
 
-# Contribution
-
-Contributions, suggestions, and improvements are welcome.
-
-1. Fork the repository.
-2. Create a new branch.
-3. Make your changes.
-4. Commit the changes.
-5. Create a Pull Request.
-
----
-
-# License
-
-This project is being developed as a proposed solution for the Smart India Hackathon (SIH) problem statement on AI-based early warning and landslide risk monitoring for the North Eastern Region.
-
----
-
 # PahadSuraksha AI
 
 **AI-Based Early Warning and Landslide Risk Monitoring System for the North Eastern Region**
