@@ -12,6 +12,14 @@ export default function Navbar() {
   const links = user?.role === "district_officer"
     ? [...NAV_LINKS, { label: "Approvals", to: "/admin" }]
     : NAV_LINKS;
+  const mobileLinks = [
+    { label: "Home", to: "/" },
+    { label: "Map", to: "/dashboard" },
+    { label: "Check Risk", to: "/dashboard/risk" },
+    { label: "Report Incident", to: "/report-incident" },
+    { label: "Account", to: "/account" },
+    ...(user?.role === "district_officer" ? [{ label: "Approvals", to: "/admin" }] : []),
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-700/80 bg-[#142016]/95 backdrop-blur">
@@ -67,7 +75,7 @@ export default function Navbar() {
 
       {open && (
         <div className="md:hidden border-t border-slate-700 bg-[#1d2a1d] px-4 py-4 space-y-2">
-          {links.map((link) => (
+          {mobileLinks.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}

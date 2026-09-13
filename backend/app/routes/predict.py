@@ -34,18 +34,19 @@ def predict():
     except Exception:
         pass
 
-    entry = Prediction(
-        user_id=user_id,
-        rainfall=inputs["rainfall"],
-        humidity=inputs["humidity"],
-        temperature=inputs["temperature"],
-        elevation=inputs["elevation"],
-        slope=inputs["slope"],
-        historical_incidents=inputs["historicalIncidents"],
-        risk_level=result["riskLevel"],
-        confidence=result["confidence"],
-    )
-    db.session.add(entry)
-    db.session.commit()
+    if user_id:
+        entry = Prediction(
+            user_id=user_id,
+            rainfall=inputs["rainfall"],
+            humidity=inputs["humidity"],
+            temperature=inputs["temperature"],
+            elevation=inputs["elevation"],
+            slope=inputs["slope"],
+            historical_incidents=inputs["historicalIncidents"],
+            risk_level=result["riskLevel"],
+            confidence=result["confidence"],
+        )
+        db.session.add(entry)
+        db.session.commit()
 
     return jsonify(result), 200

@@ -5,7 +5,6 @@ import Card from "../components/Card.jsx";
 import MapView from "../components/MapView.jsx";
 import { useGeolocation } from "../hooks/useGeolocation.js";
 import { incidentService } from "../services/incidentService.js";
-import { mockReports } from "../data/mockData.js";
 
 export default function ReportIncidentPage() {
   const [title, setTitle] = useState("");
@@ -14,11 +13,16 @@ export default function ReportIncidentPage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [coords, setCoords] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [incidents, setIncidents] = useState([]);
   const { position, locate, locating } = useGeolocation();
 
   useEffect(() => {
     if (position) setCoords(position);
   }, [position]);
+
+  useEffect(() => {
+    incidentService.list("approved").then(setIncidents).catch(() => setIncidents([]));
+  }, []);
 
   function handleImage(e) {
     const file = e.target.files?.[0];
@@ -120,7 +124,11 @@ export default function ReportIncidentPage() {
         <div className="space-y-4">
           <Card title="Reported Incidents" className="!p-0 overflow-hidden">
             <MapView
-              districts={mockReports.map((r) => ({ ...r, name: r.title, risk: "medium" }))}
+              districts={incidents.map((incident) => ({
+                ...incident,
+                name: incident.title,
+                risk: "medium",
+              }))}
               height="280px"
             />
           </Card>

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 from flask import current_app
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.extensions import db
 from app.models.weather_cache import WeatherCache
@@ -41,7 +42,16 @@ def get_weather(lat: float, lng: float):
         if fetched_at > datetime.now(timezone.utc) - timedelta(minutes=cache_minutes):
             return _cache_to_dict(cached)
 
-    data = _fetch_from_rapidapi(lat, lng) if current_app.config["RAPIDAPI_KEY"] else _synthetic_weather()
+    if not current_app.config["RAPIDAPI_KEY"]:
+        # Vercel's bundled SQLite database is read-only. Return the demo
+        # fallback without trying to persist a cache entry there.
+        return _synthetic_weather()
+
+    try:
+        data = _fetch_from_rapidapi(lat, lng)
+    except (KeyError, TypeError, ValueError, requests.RequestException):
+        # A provider outage or invalid key should not break district selection.
+        return _synthetic_weather()
 
     entry = WeatherCache(
         lat_key=lat_key,
@@ -55,8 +65,12 @@ def get_weather(lat: float, lng: float):
         condition=data["condition"],
         forecast_json=json.dumps(data["forecast"]),
     )
-    db.session.add(entry)
-    db.session.commit()
+    try:
+        db.session.add(entry)
+        db.session.commit()
+    except SQLAlchemyError:
+        # Cache persistence is optional; serverless filesystems may be read-only.
+        db.session.rollback()
 
     return data
 
