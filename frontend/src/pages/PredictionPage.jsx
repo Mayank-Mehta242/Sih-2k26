@@ -1,247 +1,298 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import toast from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, MapPin, Route } from "lucide-react";
 import Card from "../components/Card.jsx";
+import MapView from "../components/MapView.jsx";
 import RiskBadge from "../components/RiskBadge.jsx";
-import { predictionService } from "../services/predictionService.js";
 import { districtService } from "../services/districtService.js";
+import { incidentService } from "../services/incidentService.js";
+import { predictionService } from "../services/predictionService.js";
 import { weatherService } from "../services/weatherService.js";
+import { normalizeRiskKey } from "../utils/riskUtils.js";
 
-const FIELDS = [
-  { key: "rainfall", label: "Rainfall (mm, last 48h)", placeholder: "e.g. 45" },
-  { key: "humidity", label: "Humidity (%)", placeholder: "e.g. 78" },
-  { key: "temperature", label: "Temperature (°C)", placeholder: "e.g. 16" },
-  { key: "elevation", label: "Elevation (m)", placeholder: "e.g. 1800" },
-  { key: "slope", label: "Slope (°)", placeholder: "e.g. 38" },
-  { key: "historicalIncidents", label: "Historical incidents nearby", placeholder: "e.g. 4" },
+const CHECKPOINT_SPACING_KM = 5;
+const DEFAULT_START = { lat: 26.58, lng: 90.62 };
+const DEFAULT_END = { lat: 26.7, lng: 91.23 };
+const DEFAULT_START_NAME = "Chirang";
+const DEFAULT_END_NAME = "Baksa";
+const PROTOTYPE_ROUTE = [
+  ["Chirang", 26.58, 90.62],
+  ["Bijni", 26.49, 90.70],
+  ["Patiladaha", 26.43, 90.77],
+  ["Barpeta Road", 26.50, 90.97],
+  ["Howly", 26.42, 90.98],
+  ["Sarthebari", 26.47, 91.04],
+  ["Pathsala", 26.49, 91.17],
+  ["Salbari", 26.43, 91.18],
+  ["Mushalpur", 26.78, 91.28],
+  ["Baksa", 26.70, 91.23],
 ];
 
-const INPUT_RANGES = {
-  rainfall: 80,
-  humidity: 100,
-  temperature: 40,
-  elevation: 3800,
-  slope: 60,
-  historicalIncidents: 8,
-};
+function interpolateRoute(start, end, startName, endName) {
+  const isPrototypeRoute = Math.abs(start.lat - DEFAULT_START.lat) < 0.001
+    && Math.abs(start.lng - DEFAULT_START.lng) < 0.001
+    && Math.abs(end.lat - DEFAULT_END.lat) < 0.001
+    && Math.abs(end.lng - DEFAULT_END.lng) < 0.001;
+  if (isPrototypeRoute) {
+    const checkpoints = [];
+    for (let segmentIndex = 0; segmentIndex < PROTOTYPE_ROUTE.length - 1; segmentIndex += 1) {
+      const [fromName, fromLat, fromLng] = PROTOTYPE_ROUTE[segmentIndex];
+      const [toName, toLat, toLng] = PROTOTYPE_ROUTE[segmentIndex + 1];
+      const segmentDistance = distanceKm({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng });
+      const segmentCount = Math.max(1, Math.ceil(segmentDistance / CHECKPOINT_SPACING_KM));
 
-const INPUT_UNITS = {
-  rainfall: "mm",
-  humidity: "%",
-  temperature: "°C",
-  elevation: "m",
-  slope: "°",
-  historicalIncidents: "events",
-};
+      for (let step = 0; step < segmentCount; step += 1) {
+        const progress = step / segmentCount;
+        checkpoints.push({
+          lat: fromLat + (toLat - fromLat) * progress,
+          lng: fromLng + (toLng - fromLng) * progress,
+          location: step === 0 ? fromName : `${fromName} - ${toName}`,
+        });
+      }
+    }
+    const [lastName, lastLat, lastLng] = PROTOTYPE_ROUTE[PROTOTYPE_ROUTE.length - 1];
+    checkpoints.push({ lat: lastLat, lng: lastLng, location: lastName });
+    checkpoints[0].location = startName;
+    checkpoints[checkpoints.length - 1].location = endName;
+    return checkpoints.map((checkpoint, index) => ({ ...checkpoint, id: `route-point-${index + 1}`, index: index + 1 }));
+  }
+
+  const routeDistance = distanceKm(start, end);
+  const checkpointCount = Math.max(2, Math.ceil(routeDistance / CHECKPOINT_SPACING_KM) + 1);
+  return Array.from({ length: checkpointCount }, (_, index) => {
+    const progress = index / (checkpointCount - 1);
+    return {
+      id: `route-point-${index + 1}`,
+      index: index + 1,
+      location: index === 0 ? startName : index === checkpointCount - 1 ? endName : `Route checkpoint ${index + 1}`,
+      lat: start.lat + (end.lat - start.lat) * progress,
+      lng: start.lng + (end.lng - start.lng) * progress,
+    };
+  });
+}
+
+function nearestDistrict(point, districts) {
+  return districts.reduce((nearest, district) => {
+    const distance = Math.hypot(point.lat - district.lat, point.lng - district.lng);
+    return !nearest || distance < nearest.distance ? { district, distance } : nearest;
+  }, null)?.district;
+}
+
+function riskRank(level) {
+  return { low: 1, medium: 2, high: 3, extreme: 4 }[normalizeRiskKey(level)] ?? 1;
+}
+
+function highestRiskLevel(first, second) {
+  return riskRank(first) >= riskRank(second) ? first : second;
+}
+
+function distanceKm(first, second) {
+  const latitudeDistance = (first.lat - second.lat) * 111;
+  const longitudeDistance = (first.lng - second.lng) * 111 * Math.cos((first.lat * Math.PI) / 180);
+  return Math.hypot(latitudeDistance, longitudeDistance);
+}
 
 export default function PredictionPage() {
-  const [form, setForm] = useState({});
-  const [districts, setDistricts] = useState([]);
-  const [selectedDistrictId, setSelectedDistrictId] = useState("");
-  const [locationLoading, setLocationLoading] = useState(true);
-  const [locationError, setLocationError] = useState("");
-  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [start, setStart] = useState(DEFAULT_START);
+  const [end, setEnd] = useState(DEFAULT_END);
+  const [startName, setStartName] = useState(DEFAULT_START_NAME);
+  const [endName, setEndName] = useState(DEFAULT_END_NAME);
+  const [routePoints, setRoutePoints] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+  const [districts, setDistricts] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [submittedInputs, setSubmittedInputs] = useState(null);
+  const [error, setError] = useState("");
 
-  const selectedDistrict = districts.find((district) => district.id === selectedDistrictId);
+  async function handleSubmit(event) {
+    event.preventDefault();
+    const parsedStart = { lat: Number(start.lat), lng: Number(start.lng) };
+    const parsedEnd = { lat: Number(end.lat), lng: Number(end.lng) };
+    if ([start.lat, start.lng, end.lat, end.lng].some((value) => value === "" || value == null || !Number.isFinite(Number(value)))) {
+      setError("Choose a location from the prototype place suggestions.");
+      return;
+    }
 
-  useEffect(() => {
-    districtService
-      .list()
-      .then((list) => {
-        setDistricts(list);
-        const defaultDistrict = list.find((district) => district.id === "chirang") ?? list[0];
-        setSelectedDistrictId(defaultDistrict?.id ?? "");
-      })
-      .catch(() => setLocationError("Could not load monitored locations."))
-      .finally(() => setLocationLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (!selectedDistrict) return;
-    let active = true;
-    setWeatherLoading(true);
-    setLocationError("");
-    weatherService
-      .getWeather(selectedDistrict.lat, selectedDistrict.lng)
-      .then((weather) => {
-        if (!active) return;
-        setForm((current) => ({
-          ...current,
-          rainfall: weather.rainfallMm,
-          humidity: weather.humidityPct,
-          temperature: weather.temperatureC,
-          elevation: selectedDistrict.elevation ?? 500,
-          slope: selectedDistrict.slope ?? 25,
-          historicalIncidents: selectedDistrict.incidents ?? 0,
-        }));
-      })
-      .catch(() => {
-        if (active) setLocationError("Weather data is unavailable for this location.");
-      })
-      .finally(() => {
-        if (active) setWeatherLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [selectedDistrict]);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
     setLoading(true);
-    setResult(null);
+    setError("");
+    setRoutePoints([]);
     try {
-      const inputs = Object.fromEntries(
-        FIELDS.map(({ key }) => [key, Number(form[key])])
-      );
-      const output = await predictionService.predict(inputs);
-      setSubmittedInputs(inputs);
-      setResult(output);
+      const monitoredDistricts = districts ?? await districtService.list();
+      setDistricts(monitoredDistricts);
+      const points = interpolateRoute(parsedStart, parsedEnd, startName, endName);
+      const results = [];
+      let fallbackUsed = false;
+      for (const point of points) {
+        const district = nearestDistrict(point, monitoredDistricts);
+        let weather;
+        try {
+          weather = await weatherService.getWeather(point.lat, point.lng);
+        } catch (weatherError) {
+          fallbackUsed = true;
+          weather = { rainfallMm: 10, humidityPct: 70, temperatureC: 16 };
+        }
+
+        let prediction;
+        try {
+          prediction = await predictionService.predict({
+            rainfall: weather.rainfallMm,
+            humidity: weather.humidityPct,
+            temperature: weather.temperatureC,
+            elevation: district?.elevation ?? 500 + point.index * 25,
+            slope: district?.slope ?? 25 + (point.index % 3) * 4,
+            historicalIncidents: district?.incidents ?? 0,
+          });
+        } catch (predictionError) {
+          fallbackUsed = true;
+          prediction = {
+            riskLevel: district?.risk?.toUpperCase() ?? "MEDIUM",
+            confidence: 50,
+            reasons: ["Using the monitored district baseline while live prediction is unavailable"],
+            factorWeights: [],
+          };
+        }
+        const effectiveRisk = highestRiskLevel(prediction.riskLevel, district?.risk ?? "LOW");
+        results.push({
+          ...point,
+          ...prediction,
+          riskLevel: effectiveRisk,
+          districtName: district?.name ?? point.location,
+        });
+      }
+      if (fallbackUsed) toast("Some route points used monitored district baseline data.");
+      setRoutePoints(results);
+      try {
+        setIncidents(await incidentService.list("approved"));
+      } catch (incidentError) {
+        setIncidents([]);
+      }
     } catch (err) {
-      toast.error("Could not get risk estimate. Please try again.");
+      toast.error("Could not analyze this route. Please try again.");
+      setError("Weather or prediction data is unavailable for this route.");
     } finally {
       setLoading(false);
     }
   }
 
+  const highestRisk = routePoints.reduce(
+    (highest, point) => riskRank(point.riskLevel) > riskRank(highest) ? point.riskLevel : highest,
+    "LOW"
+  );
+  const pronePoints = routePoints.filter((point) => riskRank(point.riskLevel) >= riskRank("HIGH"));
+  const nearbyReports = incidents
+    .map((report) => {
+      const nearestPoint = routePoints.reduce((nearest, point) => {
+        const distance = distanceKm(report, point);
+        return !nearest || distance < nearest.distance ? { point, distance } : nearest;
+      }, null);
+      return nearestPoint ? { report, ...nearestPoint } : null;
+    })
+    .filter((match) => match && match.distance <= 15);
+  const mapPoints = routePoints.length > 0
+    ? routePoints
+    : [
+        { id: "manual-start", index: "S", location: startName, lat: Number(start.lat), lng: Number(start.lng), riskLevel: "LOW", districtName: startName, confidence: "-" },
+        { id: "manual-end", index: "E", location: endName, lat: Number(end.lat), lng: Number(end.lng), riskLevel: "LOW", districtName: endName, confidence: "-" },
+      ];
+
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-2">Check Travel Risk</h1>
+      <h1 className="text-2xl font-bold text-white mb-2">Route Landslide Risk</h1>
       <p className="text-slate-200 mb-6">
-        Select a monitored location to automatically load rainfall, humidity, temperature, terrain, and historical events.
+        Enter two locations to identify landslide-prone sections along your route before you travel.
       </p>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <Card title="Location Details">
+        <Card title="Route Details">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-sm text-slate-200 mb-1.5 block" htmlFor="risk-location">
-                Monitored location
-              </label>
-              <select
-                id="risk-location"
-                required
-                className="input-field"
-                value={selectedDistrictId}
-                disabled={locationLoading || districts.length === 0}
-                onChange={(event) => setSelectedDistrictId(event.target.value)}
-              >
-                <option value="">Select a district</option>
-                {districts.map((district) => (
-                  <option key={district.id} value={district.id}>{district.name}</option>
-                ))}
-              </select>
-            </div>
-            {locationError && <p className="text-sm text-risk-high">{locationError}</p>}
             <div className="grid sm:grid-cols-2 gap-4">
-              {FIELDS.map((f) => (
-                <div key={f.key}>
-                  <label className="text-sm text-slate-200 mb-1.5 block">{f.label}</label>
-                  <input
-                    type="number"
-                    step="any"
-                    required
-                    className="input-field"
-                    placeholder={f.placeholder}
-                    value={form[f.key] ?? ""}
-                    readOnly
-                    disabled={weatherLoading || !selectedDistrict}
-                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                  />
-                </div>
+              {[{ label: "Start point", value: start, setter: setStart, name: startName, setName: setStartName }, { label: "End point", value: end, setter: setEnd, name: endName, setName: setEndName }].map((point) => (
+                <fieldset key={point.label} className="space-y-3">
+                  <legend className="text-sm font-semibold text-white flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-forest-400" />{point.label}
+                  </legend>
+                  <label className="block text-xs text-slate-300">
+                    Location name
+                    <input
+                      list="prototype-locations"
+                      className="input-field mt-1"
+                      value={point.name}
+                      onChange={(input) => {
+                        const name = input.target.value;
+                        point.setName(name);
+                        const match = PROTOTYPE_ROUTE.find(([location]) => location.toLowerCase() === name.trim().toLowerCase());
+                        if (match) point.setter({ lat: match[1], lng: match[2] });
+                        else point.setter({ lat: "", lng: "" });
+                      }}
+                      placeholder="e.g. Chirang"
+                    />
+                  </label>
+                </fieldset>
               ))}
             </div>
-            <button type="submit" disabled={loading || weatherLoading || !selectedDistrict} className="btn-primary w-full">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {loading ? "Analyzing…" : weatherLoading ? "Loading conditions…" : "Estimate Risk"}
+            <datalist id="prototype-locations">
+              {PROTOTYPE_ROUTE.map(([location]) => <option key={location} value={location} />)}
+            </datalist>
+            <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-900/30 rounded-lg p-3">
+              <Route className="h-4 w-4 shrink-0 text-risk-medium" /> Route conditions are checked across the journey between both locations.
+            </div>
+            {error && <p className="text-sm text-risk-high">{error}</p>}
+            <button type="submit" disabled={loading} className="btn-primary w-full">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Route className="h-4 w-4" />}
+              {loading ? "Analyzing route…" : "Analyze Route"}
             </button>
-            <p className="text-xs text-slate-300">
-              Historical events are taken from the selected district's monitored incident record.
-            </p>
           </form>
         </Card>
 
-        <Card title="Risk Estimate">
-          {!result && !loading && (
-            <p className="text-sm text-slate-200 py-8 text-center">
-              Enter the conditions above to see your risk estimate.
-            </p>
-          )}
+        <Card title="Route Overview">
+          {!routePoints.length && !loading && <p className="text-sm text-slate-200 py-8 text-center">Analyze a route to see risk at each sampled location.</p>}
           {loading && <p className="text-sm text-slate-200 py-8 text-center">Calculating…</p>}
-          {result && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <RiskBadge level={result.riskLevel} size="lg" />
-                <div className="text-right">
-                  <p className="text-3xl font-bold text-white">{result.confidence}%</p>
-                  <p className="text-xs text-slate-300">confidence</p>
-                </div>
+          {routePoints.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm text-slate-300">
+                <span>{pronePoints.length} possible landslide-prone areas</span><RiskBadge level={highestRisk} />
               </div>
-
-              <div>
-                <p className="text-xs text-slate-300 uppercase tracking-wide mb-2">Why this risk level</p>
-                <ul className="space-y-2">
-                  {result.reasons.map((r) => (
-                    <li key={r} className="flex items-start gap-2 text-sm text-slate-200">
-                      <span className="h-1.5 w-1.5 rounded-full bg-forest-500 mt-1.5 shrink-0" />
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <p className="text-xs text-slate-300 uppercase tracking-wide mb-2">Entered conditions</p>
-                <div className="space-y-2">
-                  {FIELDS.map((field) => {
-                    const value = submittedInputs?.[field.key] ?? 0;
-                    const percentage = Math.min(
-                      100,
-                      Math.max(0, (value / INPUT_RANGES[field.key]) * 100)
-                    );
-                    return (
-                      <div key={field.key}>
-                        <div className="flex justify-between text-xs text-slate-300 mb-1">
-                          <span>{field.label.replace(/ \(.+\)/, "")}</span>
-                          <span>{value} {INPUT_UNITS[field.key]}</span>
-                        </div>
-                        <div className="h-1.5 rounded bg-slate-700 overflow-hidden">
-                          <div
-                            className="h-full bg-forest-500 transition-all duration-500"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs text-slate-300 uppercase tracking-wide mb-2">Model importance</p>
-                <div className="space-y-2">
-                  {result.factorWeights.map((f) => (
-                    <div key={f.factor}>
-                      <div className="flex justify-between text-xs text-slate-300 mb-1">
-                        <span>{f.factor}</span>
-                        <span>{Math.round(f.weight * 100)}%</span>
-                      </div>
-                      <div className="h-1.5 rounded bg-slate-700 overflow-hidden">
-                        <div
-                          className="h-full bg-forest-500"
-                          style={{ width: `${f.weight * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {pronePoints.length === 0 && <p className="text-sm text-slate-200 py-6 text-center">No landslide-prone area. Happy journey.</p>}
+              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {pronePoints.map((point) => (
+                  <div key={point.id} className="flex items-center justify-between gap-3 border border-slate-700 rounded-lg p-3">
+                    <div className="min-w-0"><p className="text-sm font-semibold text-white">{point.location} <span className="text-slate-400 font-normal">({point.lat.toFixed(3)}, {point.lng.toFixed(3)})</span></p><p className="text-xs text-slate-300 truncate">Sample {point.index} · {point.districtName}</p></div>
+                    <div className="text-right shrink-0"><RiskBadge level={point.riskLevel} /><p className="text-xs text-slate-400 mt-1">{point.confidence}% confidence</p></div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
         </Card>
+      </div>
+      {routePoints.length > 0 && (
+        <Card title="Incident Reports Along Route">
+          {nearbyReports.length === 0 ? (
+            <p className="text-sm text-slate-200 py-4 text-center">No approved incident reports near this route.</p>
+          ) : (
+            <div className="space-y-3">
+              {nearbyReports.map(({ report, point, distance }) => (
+                <div key={report.id} className="flex items-start justify-between gap-4 border border-slate-700 rounded-lg p-3">
+                  <div className="flex gap-3 min-w-0">
+                    <AlertTriangle className="h-5 w-5 text-risk-high shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">{report.title}</p>
+                      <p className="text-xs text-slate-300 mt-1">Near {point.location} · {report.district || "Route area"} · {distance.toFixed(1)} km away</p>
+                      {report.createdAt && <p className="text-xs text-slate-400 mt-1">Reported {report.createdAt}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <RiskBadge level={point.riskLevel} />
+                    <p className="text-xs text-slate-400 mt-1">route risk</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+      <div className="mt-6">
+        <p className="text-sm text-slate-300 mb-2">Route preview</p>
+        <MapView routePoints={mapPoints} districts={routePoints.length > 0 ? districts ?? [] : []} height="520px" />
       </div>
     </div>
   );

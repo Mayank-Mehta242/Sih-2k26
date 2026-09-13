@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup, Polyline, useMap, useMapEvents } from "react-leaflet";
 import { NER_REGION_CENTER, DEFAULT_ZOOM } from "../utils/constants.js";
 import { normalizeRiskKey, RISK_STYLES } from "../utils/riskUtils.js";
 
@@ -38,7 +38,21 @@ function LocationMarker({ position }) {
   );
 }
 
-export default function MapView({ districts = [], onSelectDistrict, onMapClick, userPosition, height = "480px" }) {
+function RouteOverlay({ points }) {
+  const map = useMap();
+  const coordinates = points.map((point) => [point.lat, point.lng]);
+
+  useEffect(() => {
+    if (coordinates.length > 1) {
+      map.fitBounds(coordinates, { padding: [28, 28] });
+    }
+  }, [map, points]);
+
+  if (coordinates.length < 2) return null;
+  return <Polyline positions={coordinates} pathOptions={{ color: "#f59e0b", weight: 4, opacity: 0.9 }} />;
+}
+
+export default function MapView({ districts = [], routePoints = [], onSelectDistrict, onMapClick, userPosition, height = "480px" }) {
   return (
     <div style={{ height }} className="rounded overflow-hidden border border-slate-700">
       <MapContainer
@@ -53,6 +67,29 @@ export default function MapView({ districts = [], onSelectDistrict, onMapClick, 
         />
         <ClickCapture onMapClick={onMapClick} />
         <LocationMarker position={userPosition} />
+        <RouteOverlay points={routePoints} />
+        {routePoints.map((point) => (
+          <CircleMarker
+            key={point.id}
+            center={[point.lat, point.lng]}
+            radius={8}
+            pathOptions={{
+              color: RISK_HEX[normalizeRiskKey(point.riskLevel)],
+              fillColor: RISK_HEX[normalizeRiskKey(point.riskLevel)],
+              fillOpacity: 0.9,
+              weight: 2,
+            }}
+          >
+            <Popup>
+              <div className="text-sm">
+                <p className="font-semibold">{point.location ?? `Point ${point.index}`}</p>
+                <p>{point.districtName}</p>
+                <p>Risk: {RISK_STYLES[normalizeRiskKey(point.riskLevel)].label}</p>
+                <p>Confidence: {point.confidence}%</p>
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
         {districts.map((d) => (
           <CircleMarker
             key={d.id}
