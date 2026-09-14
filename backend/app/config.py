@@ -16,6 +16,14 @@ class Config:
 
     FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
 
+    SMS_ENABLED = os.environ.get("SMS_ENABLED", "false").lower() == "true"
+    SMS_RAPIDAPI_KEY = os.environ.get("SMS_RAPIDAPI_KEY", "")
+    TEXTFLOW_API_KEY = os.environ.get("TEXTFLOW_API_KEY", "")
+    TEXTFLOW_API_URL = os.environ.get(
+        "TEXTFLOW_API_URL", "https://textflow-sms-api.p.rapidapi.com/send-sms"
+    )
+    TEXTFLOW_API_HOST = os.environ.get("TEXTFLOW_API_HOST", "textflow-sms-api.p.rapidapi.com")
+
     RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
     RAPIDAPI_HOST = os.environ.get("RAPIDAPI_HOST", "open-weather13.p.rapidapi.com")
     RAPIDAPI_UA = os.environ.get("RAPIDAPI_UA", "RapidAPI-Playground")

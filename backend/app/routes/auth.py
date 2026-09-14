@@ -18,8 +18,10 @@ def register():
     if User.query.filter_by(email=body["email"].lower().strip()).first():
         return jsonify({"error": "An account with this email already exists."}), 409
 
-    # Officer accounts are provisioned by seed/admin tooling, never by public signup.
-    role = "driver"
+    requested_role = body.get("role", "citizen")
+    if requested_role not in {"citizen", "district_officer"}:
+        return jsonify({"error": "Invalid account type."}), 400
+    role = "driver" if requested_role == "citizen" else "district_officer"
 
     user = User(
         name=body["name"].strip(),
@@ -45,6 +47,11 @@ def login():
     user = User.query.filter_by(email=email).first()
     if not user or not user.check_password(password):
         return jsonify({"error": "Invalid email or password."}), 401
+
+    requested_role = body.get("role", "citizen")
+    expected_role = "driver" if requested_role == "citizen" else "district_officer"
+    if requested_role not in {"citizen", "district_officer"} or user.role != expected_role:
+        return jsonify({"error": "These credentials do not match the selected account type."}), 403
 
     token = create_access_token(identity=user.id, additional_claims={"role": user.role})
     return jsonify({"token": token, "user": user.to_dict()}), 200

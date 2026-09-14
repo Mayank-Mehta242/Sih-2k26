@@ -47,6 +47,7 @@ export default function AdminDashboardPage() {
   }
 
   async function handleDelete(id) {
+    if (!window.confirm("Delete this report permanently?")) return;
     try {
       await incidentService.delete(id);
       setReports((r) => r.filter((rep) => rep.id !== id));
@@ -170,6 +171,13 @@ export default function AdminDashboardPage() {
                           />
                           <div className="flex gap-2">
                           <button
+                            onClick={() => setEditing({ id: r.id, title: r.title, district: r.district || "" })}
+                            className="p-1.5 rounded-md bg-forest-500/15 text-forest-400 hover:bg-forest-500/25"
+                            aria-label={`Edit ${r.title}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleApprove(r.id)}
                             className="p-1.5 rounded-md bg-risk-low/15 text-risk-low hover:bg-risk-low/25"
                             aria-label={`Approve ${r.title}`}
@@ -183,6 +191,13 @@ export default function AdminDashboardPage() {
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
+                          <button
+                            onClick={() => handleDelete(r.id)}
+                            className="p-1.5 rounded-md bg-risk-extreme/15 text-risk-extreme hover:bg-risk-extreme/25"
+                            aria-label={`Delete ${r.title}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                           </div>
                         </div>
                       ) : (
@@ -194,15 +209,13 @@ export default function AdminDashboardPage() {
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          {r.status === "approved" && (
-                            <button
-                              onClick={() => handleDelete(r.id)}
-                              className="p-1.5 rounded-md bg-risk-extreme/15 text-risk-extreme hover:bg-risk-extreme/25"
-                              aria-label={`Delete ${r.title}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleDelete(r.id)}
+                            className="p-1.5 rounded-md bg-risk-extreme/15 text-risk-extreme hover:bg-risk-extreme/25"
+                            aria-label={`Delete ${r.title}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       )}
                     </td>

@@ -7,6 +7,9 @@ from werkzeug.utils import secure_filename
 
 from app.extensions import db
 from app.models.incident import Incident
+from app.models.notification import Notification
+from app.models.user import User
+from app.services.sms_service import send_sms
 from app.utils.decorators import role_required
 
 incidents_bp = Blueprint("incidents", __name__, url_prefix="/api/incidents")
@@ -85,9 +88,20 @@ def serve_upload(filename):
 def approve(incident_id):
     incident = Incident.query.get_or_404(incident_id)
     body = request.get_json(silent=True) or {}
+    was_already_approved = incident.status == "approved"
     incident.status = "approved"
     incident.review_comment = (body.get("comment") or "").strip()[:2000] or None
     db.session.commit()
+
+    if not was_already_approved:
+        location = incident.district or f"{incident.lat:.4f}, {incident.lng:.4f}"
+        message = f"Landslide alert: {incident.title} reported near {location}. Please be careful."
+        users = User.query.filter(User.phone.isnot(None), User.phone != "").all()
+        for user in users:
+            db.session.add(Notification(user_id=user.id, text=message))
+            send_sms(user.phone, message)
+        db.session.commit()
+
     return jsonify(incident.to_dict()), 200
 
 
@@ -137,8 +151,6 @@ def update_incident(incident_id):
 @role_required("district_officer")
 def delete_incident(incident_id):
     incident = Incident.query.get_or_404(incident_id)
-    if incident.status != "approved":
-        return jsonify({"error": "Only approved reports can be deleted."}), 409
 
     if incident.image_path:
         image_file = os.path.join(current_app.config["UPLOAD_FOLDER"], secure_filename(incident.image_path))

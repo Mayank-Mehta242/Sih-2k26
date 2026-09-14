@@ -7,7 +7,7 @@ import { useAuth } from "../hooks/useAuth.js";
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "", role: "citizen" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -16,9 +16,9 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      const loggedInUser = await login(form.email, form.password, form.role);
       toast.success("Logged in");
-      navigate("/dashboard");
+      navigate(loggedInUser.role === "district_officer" ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err.message || "Login failed");
     } finally {
@@ -33,6 +33,18 @@ export default function LoginPage() {
         <p className="text-sm text-slate-200 mb-6">Sign in to report incidents and save locations.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm text-slate-200 block mb-1.5">Login as</label>
+            <select
+              className="input-field"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+            >
+              <option value="citizen">Citizen</option>
+              <option value="district_officer">District authority</option>
+            </select>
+          </div>
+
           <div>
             <label className="text-sm text-slate-200 block mb-1.5">Email</label>
             <input

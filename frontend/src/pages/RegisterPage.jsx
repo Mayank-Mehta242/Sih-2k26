@@ -12,6 +12,7 @@ const initialForm = {
   confirmPassword: "",
   district: "",
   phone: "",
+  role: "citizen",
 };
 
 export default function RegisterPage() {
@@ -97,6 +98,18 @@ export default function RegisterPage() {
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-slate-200 mb-1.5 block">Account type</label>
+              <select
+                required
+                className="input-field"
+                value={form.role}
+                onChange={(e) => update("role", e.target.value)}
+              >
+                <option value="citizen">Citizen</option>
+                <option value="district_officer">District authority</option>
+              </select>
+            </div>
             <div>
               <label className="text-xs text-slate-200 mb-1.5 block">District</label>
               <select

@@ -218,6 +218,20 @@ Possible notification channels include:
 * Web application
 * Mobile application
 * SMS
+
+### SMS alerts
+
+When a district officer approves a new incident, the backend creates an in-app notification and sends an SMS to every registered user with a phone number. SMS delivery uses the TextFlow SMS API through RapidAPI and is disabled by default.
+
+Set these backend environment variables to enable it:
+
+```env
+SMS_ENABLED=true
+SMS_RAPIDAPI_KEY=your-rapidapi-key
+TEXTFLOW_API_KEY=your-textflow-api-key
+```
+
+Store user phone numbers in international E.164 format, for example `+919876543210`. An SMS provider failure is logged and does not roll back the approved report.
 * Push notifications
 
 ---
