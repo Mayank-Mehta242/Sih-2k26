@@ -33,4 +33,4 @@ class Config:
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads", "incidents")
     MAX_CONTENT_LENGTH = 8 * 1024 * 1024  # 8 MB uploads
 
-    ML_MODEL_PATH = os.path.join(BASE_DIR, "machine_learning", "landslide_model.pkl")
+    ML_MODEL_PATH = os.path.join(BASE_DIR, "machine_learning", "landslide_xgboost_model.pkl")

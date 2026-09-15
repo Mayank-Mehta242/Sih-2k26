@@ -1,28 +1,25 @@
-"""
-Trains the Random Forest landslide-risk classifier and saves it to
-landslide_model.pkl for app/services/ml_service.py to load.
+"""Train and compare the tabular landslide-risk models.
 
-A REAL historical landslide dataset from the North Eastern Region (for example,
-Bhukosh/GSI records, or NASA's Global
-Landslide Catalog) should replace `generate_synthetic_dataset()` before
-this goes anywhere near production — the synthetic data here exists only
-so the full pipeline (train -> save -> serve -> predict) runs end-to-end
-without requiring a licensed dataset up front.
-
-Usage:
-    python machine_learning/train_model.py
+The checked-in CSV is a synthetic development dataset. Its metrics are useful
+for checking the pipeline, but must not be treated as field accuracy.
 """
 import os
+import json
 import numpy as np
 import pandas as pd
+from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import accuracy_score, average_precision_score, classification_report, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, label_binarize
 import joblib
 
+from model_pipeline import FEATURE_ORDER
+
 RANDOM_STATE = 42
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "landslide_model.pkl")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "landslide_xgboost_model.pkl")
 DATASET_PATH = os.path.join(os.path.dirname(__file__), "dataset.csv")
+METRICS_PATH = os.path.join(os.path.dirname(__file__), "model_metrics.json")
 
 
 def _risk_label(rainfall, humidity, slope, historical_incidents, elevation):
@@ -76,6 +73,28 @@ def generate_synthetic_dataset(n=6000):
     return df
 
 
+def _metrics(model, X_test, y_test):
+    predictions = model.predict(X_test)
+    probabilities = model.predict_proba(X_test)
+    classes = list(model.classes_)
+    y_test_binary = label_binarize(y_test, classes=classes)
+    return {
+        "accuracy": round(float(accuracy_score(y_test, predictions)), 4),
+        "precision_macro": round(float(precision_score(y_test, predictions, average="macro", zero_division=0)), 4),
+        "recall_macro": round(float(recall_score(y_test, predictions, average="macro", zero_division=0)), 4),
+        "f1_macro": round(float(f1_score(y_test, predictions, average="macro", zero_division=0)), 4),
+        "roc_auc_ovr_macro": round(float(roc_auc_score(y_test_binary, probabilities, multi_class="ovr", average="macro")), 4),
+        "pr_auc_macro": round(float(average_precision_score(y_test_binary, probabilities, average="macro")), 4),
+        "classification_report": classification_report(y_test, predictions, zero_division=0, output_dict=True),
+    }
+
+
+def _print_metrics(name, metrics):
+    print(name)
+    for metric in ("accuracy", "precision_macro", "recall_macro", "f1_macro", "roc_auc_ovr_macro", "pr_auc_macro"):
+        print(f"  {metric}: {metrics[metric]:.4f}")
+
+
 def train():
     if os.path.exists(DATASET_PATH):
         print(f"Loading existing dataset from {DATASET_PATH}")
@@ -86,30 +105,69 @@ def train():
         df.to_csv(DATASET_PATH, index=False)
         print(f"Synthetic dataset saved to {DATASET_PATH}")
 
-    feature_cols = ["rainfall", "humidity", "temperature", "elevation", "slope", "historicalIncidents"]
-    X = df[feature_cols]
-    y = df["riskLevel"]
+    missing = [feature for feature in FEATURE_ORDER + ["riskLevel"] if feature not in df.columns]
+    if missing:
+        raise ValueError(f"Dataset is missing required columns: {', '.join(missing)}")
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y)
+    X = df[FEATURE_ORDER]
+    label_encoder = LabelEncoder()
+    y = label_encoder.fit_transform(df["riskLevel"])
 
-    model = RandomForestClassifier(
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
+    )
+
+    random_forest = RandomForestClassifier(
         n_estimators=500,
         max_depth=None,
         min_samples_leaf=1,
         random_state=RANDOM_STATE,
         n_jobs=-1,
     )
-    model.fit(X_train, y_train)
+    xgboost = XGBClassifier(
+        n_estimators=350,
+        max_depth=6,
+        learning_rate=0.05,
+        subsample=0.9,
+        colsample_bytree=0.9,
+        objective="multi:softprob",
+        eval_metric="mlogloss",
+        tree_method="hist",
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+    )
 
-    preds = model.predict(X_test)
-    print("Accuracy:", round(accuracy_score(y_test, preds) * 100, 2), "%")
-    print(classification_report(y_test, preds))
+    random_forest.fit(X_train, y_train)
+    xgboost.fit(X_train, y_train)
+    random_forest_metrics = _metrics(random_forest, X_test, y_test)
+    xgboost_metrics = _metrics(xgboost, X_test, y_test)
+    _print_metrics("Random Forest", random_forest_metrics)
+    _print_metrics("XGBoost", xgboost_metrics)
 
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
-    cv_scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy", n_jobs=-1)
-    print("5-fold CV accuracy:", round(cv_scores.mean() * 100, 2), "% (+/-", round(cv_scores.std() * 100, 2), ")")
-
-    joblib.dump(model, MODEL_PATH)
+    xgboost.metadata = {
+        "model": "xgboost",
+        "feature_order": FEATURE_ORDER,
+        "class_names": list(label_encoder.classes_),
+        "training_rows": len(df),
+        "test_rows": len(X_test),
+        "random_state": RANDOM_STATE,
+    }
+    joblib.dump(xgboost, MODEL_PATH)
+    with open(METRICS_PATH, "w", encoding="utf-8") as metrics_file:
+        json.dump(
+            {
+                "dataset": os.path.basename(DATASET_PATH),
+                "dataset_is_synthetic": True,
+                "features": FEATURE_ORDER,
+                "test_size": 0.2,
+                "random_state": RANDOM_STATE,
+                "models": {"random_forest": random_forest_metrics, "xgboost": xgboost_metrics},
+            },
+            metrics_file,
+            indent=2,
+        )
+    print(f"Model saved to {MODEL_PATH}")
+    print(f"Metrics saved to {METRICS_PATH}")
     print(f"Model saved to {MODEL_PATH}")
 
 

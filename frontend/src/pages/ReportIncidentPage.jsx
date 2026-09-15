@@ -33,8 +33,10 @@ export default function ReportIncidentPage() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!coords) {
-      toast.error("Please set a location first.");
+    const latitude = Number(coords?.lat);
+    const longitude = Number(coords?.lng);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      toast.error("Enter a valid latitude and longitude, or use My Location.");
       return;
     }
     setSubmitting(true);
@@ -42,8 +44,8 @@ export default function ReportIncidentPage() {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
-      formData.append("lat", coords.lat);
-      formData.append("lng", coords.lng);
+      formData.append("lat", latitude);
+      formData.append("lng", longitude);
       if (image) formData.append("image", image);
 
       await incidentService.submit(formData);
@@ -103,16 +105,36 @@ export default function ReportIncidentPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <button type="button" onClick={locate} className="btn-secondary text-sm">
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <p className="text-sm text-slate-200">Location</p>
+                <button type="button" onClick={locate} className="btn-secondary text-sm">
                 <LocateFixed className="h-4 w-4" />
                 {locating ? "Locating…" : coords ? "Set" : "My Location"}
-              </button>
-              {coords && (
-                <span className="text-xs text-slate-300">
-                  {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}
-                </span>
-              )}
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 mb-2">Click the map, type coordinates manually, or use your current location.</p>
+              <div className="grid grid-cols-2 gap-3">
+                {[{ label: "Latitude", key: "lat", placeholder: "26.1445" }, { label: "Longitude", key: "lng", placeholder: "91.7362" }].map((coordinate) => (
+                  <label key={coordinate.key} className="text-xs text-slate-300">
+                    {coordinate.label}
+                    <input
+                      required
+                      type="number"
+                      step="any"
+                      min={coordinate.key === "lat" ? -90 : -180}
+                      max={coordinate.key === "lat" ? 90 : 180}
+                      className="input-field mt-1"
+                      value={coords?.[coordinate.key] ?? ""}
+                      onChange={(event) => setCoords((current) => ({
+                        ...(current ?? { lat: "", lng: "" }),
+                        [coordinate.key]: event.target.value,
+                      }))}
+                      placeholder={coordinate.placeholder}
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
 
             <button type="submit" disabled={submitting} className="btn-primary w-full">
@@ -129,6 +151,8 @@ export default function ReportIncidentPage() {
                 name: incident.title,
                 risk: "medium",
               }))}
+              onMapClick={setCoords}
+              userPosition={coords}
               height="280px"
             />
           </Card>

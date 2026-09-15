@@ -1,15 +1,13 @@
 """
-Loads the trained Random Forest model (see machine_learning/train_model.py)
+Loads the trained XGBoost model (see machine_learning/train_model.py)
 and turns a raw prediction into the explained shape the frontend expects:
 { riskLevel, confidence, reasons, factorWeights }
 """
-import os
-import joblib
-import numpy as np
 from flask import current_app
+import numpy as np
 
-FEATURE_ORDER = ["rainfall", "humidity", "temperature", "elevation", "slope", "historicalIncidents"]
-LABELS = ["LOW", "MEDIUM", "HIGH", "VERY HIGH"]
+from machine_learning.model_pipeline import FEATURE_ORDER, LABELS, load_artifact, ordered_features
+
 
 _model_cache = None
 
@@ -17,12 +15,7 @@ _model_cache = None
 def _load_model():
     global _model_cache
     if _model_cache is None:
-        path = current_app.config["ML_MODEL_PATH"]
-        if not os.path.exists(path):
-            raise FileNotFoundError(
-                f"No trained model found at {path}. Run `python machine_learning/train_model.py` first."
-            )
-        _model_cache = joblib.load(path)
+        _model_cache = load_artifact(current_app.config["ML_MODEL_PATH"])
     return _model_cache
 
 
@@ -59,11 +52,12 @@ def _reasons_for(inputs, risk_key):
 
 def predict_risk(inputs: dict):
     model = _load_model()
-    ordered = np.array([[float(inputs[f]) for f in FEATURE_ORDER]])
+    ordered = ordered_features(inputs)
 
     proba = model.predict_proba(ordered)[0]
     class_index = int(np.argmax(proba))
-    risk_level = model.classes_[class_index] if hasattr(model, "classes_") else LABELS[class_index]
+    class_names = (getattr(model, "metadata", {}) or {}).get("class_names")
+    risk_level = class_names[class_index] if class_names else LABELS[class_index]
     confidence = round(float(proba[class_index]) * 100, 1)
 
     importances = getattr(model, "feature_importances_", None)
