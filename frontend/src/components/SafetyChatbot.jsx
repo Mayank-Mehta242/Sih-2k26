@@ -9,7 +9,23 @@ const WELCOME_MESSAGE = {
   text: "Hello. Ask me about current weather or approved landslide reports in the North Eastern Region.",
 };
 
-const OTHER_INDIAN_REGIONS = [
+const NER_LOCATIONS = [
+  "arunachal pradesh",
+  "assam",
+  "manipur",
+  "meghalaya",
+  "mizoram",
+  "nagaland",
+  "sikkim",
+  "tripura",
+  "north east",
+  "northeast",
+  "north eastern",
+  "north-eastern",
+  "ner",
+];
+
+const NON_NER_LOCATIONS = [
   "andhra pradesh",
   "bihar",
   "chhattisgarh",
@@ -37,15 +53,19 @@ const OTHER_INDIAN_REGIONS = [
   "ladakh",
   "lakshadweep",
   "puducherry",
+  "tehri",
+  "garhwal",
 ];
 
 function createReply(question, weather, incidents) {
   const normalizedQuestion = question.toLowerCase();
-  const mentionsOtherRegion = OTHER_INDIAN_REGIONS.some((region) => normalizedQuestion.includes(region));
+  const mentionsNER = NER_LOCATIONS.some((location) => normalizedQuestion.includes(location));
+  const mentionsNonNER = NON_NER_LOCATIONS.some((location) => normalizedQuestion.includes(location));
+  const asksAboutSpecificLocation = /\b(?:in|near|at|around|from)\s+[a-z]/.test(normalizedQuestion);
   const asksWeather = /weather|rain|rainfall|temperature|temp|humidity|wind|condition|forecast/.test(normalizedQuestion);
   const asksLandslide = /landslide|slide|road block|debris|incident|blocked road|risk/.test(normalizedQuestion);
 
-  if (mentionsOtherRegion) {
+  if (mentionsNonNER || (asksAboutSpecificLocation && !mentionsNER)) {
     return "I can only answer questions about Arunachal Pradesh, Assam, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, and Tripura.";
   }
 
