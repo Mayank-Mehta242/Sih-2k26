@@ -67,7 +67,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-6">District Officer Panel</h1>
+      <h1 className="text-2xl font-bold text-[#102a43] mb-6">District Officer Panel</h1>
 
       <Card
         title="Incident reports queue"
@@ -88,7 +88,7 @@ export default function AdminDashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-slate-300 uppercase tracking-wide border-b border-white/5">
+                <tr className="text-left text-xs text-[#526579] uppercase tracking-wide border-b border-slate-200">
                   <th className="pb-3 pr-4">Title</th>
                   <th className="pb-3 pr-4">District</th>
                   <th className="pb-3 pr-4">Evidence</th>
@@ -99,8 +99,8 @@ export default function AdminDashboardPage() {
               </thead>
               <tbody>
                 {reports.map((r) => (
-                  <tr key={r.id} className="border-b border-white/5 last:border-0">
-                    <td className="py-3 pr-4 text-white">
+                  <tr key={r.id} className="border-b border-slate-200 last:border-0">
+                    <td className="py-3 pr-4 text-[#102a43]">
                       {editing?.id === r.id ? (
                         <input
                           className="input-field text-xs"
@@ -109,7 +109,7 @@ export default function AdminDashboardPage() {
                         />
                       ) : r.title}
                     </td>
-                    <td className="py-3 pr-4 text-slate-200">
+                    <td className="py-3 pr-4 text-[#526579]">
                       {editing?.id === r.id ? (
                         <input
                           className="input-field text-xs"
@@ -134,10 +134,10 @@ export default function AdminDashboardPage() {
                           <Eye className="h-4 w-4" />
                         </button>
                       ) : (
-                        <span className="text-xs text-slate-300">No image</span>
+                        <span className="text-xs text-[#526579]">No image</span>
                       )}
                     </td>
-                    <td className="py-3 pr-4 text-slate-200 font-mono text-xs">{r.createdAt}</td>
+                    <td className="py-3 pr-4 text-[#526579] font-mono text-xs">{r.createdAt}</td>
                     <td className="py-3 pr-4">
                       <StatusPill status={r.status} />
                     </td>
@@ -153,7 +153,7 @@ export default function AdminDashboardPage() {
                           </button>
                           <button
                             onClick={() => setEditing(null)}
-                            className="p-1.5 rounded-md bg-slate-500/15 text-slate-200 hover:bg-slate-500/25"
+                            className="p-1.5 rounded-md bg-slate-500/15 text-slate-600 hover:bg-slate-500/25"
                             aria-label={`Cancel editing ${r.title}`}
                           >
                             <Undo2 className="h-3.5 w-3.5" />

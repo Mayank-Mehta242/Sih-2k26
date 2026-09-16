@@ -244,19 +244,19 @@ export default function PredictionPage() {
         </Card>
 
         <Card title="Route Overview">
-          {!routePoints.length && !loading && <p className="text-sm text-slate-200 py-8 text-center">Analyze a route to see risk at each sampled location.</p>}
-          {loading && <p className="text-sm text-slate-200 py-8 text-center">Calculating…</p>}
+          {!routePoints.length && !loading && <p className="text-sm text-[#526579] py-8 text-center">Analyze a route to see risk at each sampled location.</p>}
+          {loading && <p className="text-sm text-[#526579] py-8 text-center">Calculating…</p>}
           {routePoints.length > 0 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm text-slate-300">
+              <div className="flex items-center justify-between text-sm text-[#526579]">
                 <span>{pronePoints.length} possible landslide-prone areas</span><RiskBadge level={highestRisk} />
               </div>
-              {pronePoints.length === 0 && <p className="text-sm text-slate-200 py-6 text-center">No landslide-prone area. Happy journey.</p>}
+              {pronePoints.length === 0 && <p className="text-sm text-[#526579] py-6 text-center">No landslide-prone area. Happy journey.</p>}
               <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
                 {pronePoints.map((point) => (
                   <div key={point.id} className="flex items-center justify-between gap-3 border border-slate-700 rounded-lg p-3">
-                    <div className="min-w-0"><p className="text-sm font-semibold text-white">{point.location} <span className="text-slate-400 font-normal">({point.lat.toFixed(3)}, {point.lng.toFixed(3)})</span></p><p className="text-xs text-slate-300 truncate">Sample {point.index} · {point.districtName}</p></div>
-                    <div className="text-right shrink-0"><RiskBadge level={point.riskLevel} /><p className="text-xs text-slate-400 mt-1">{point.confidence}% confidence</p></div>
+                    <div className="min-w-0"><p className="text-sm font-semibold text-[#102a43]">{point.location} <span className="text-[#526579] font-normal">({point.lat.toFixed(3)}, {point.lng.toFixed(3)})</span></p><p className="text-xs text-[#526579] truncate">Sample {point.index} · {point.districtName}</p></div>
+                    <div className="text-right shrink-0"><RiskBadge level={point.riskLevel} /><p className="text-xs text-[#526579] mt-1">{point.confidence}% confidence</p></div>
                   </div>
                 ))}
               </div>
@@ -267,7 +267,7 @@ export default function PredictionPage() {
       {routePoints.length > 0 && (
         <Card title="Incident Reports Along Route">
           {nearbyReports.length === 0 ? (
-            <p className="text-sm text-slate-200 py-4 text-center">No approved incident reports near this route.</p>
+            <p className="text-sm text-[#526579] py-4 text-center">No approved incident reports near this route.</p>
           ) : (
             <div className="space-y-3">
               {nearbyReports.map(({ report, point, distance }) => (
@@ -275,14 +275,14 @@ export default function PredictionPage() {
                   <div className="flex gap-3 min-w-0">
                     <AlertTriangle className="h-5 w-5 text-risk-high shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white">{report.title}</p>
-                      <p className="text-xs text-slate-300 mt-1">Near {point.location} · {report.district || "Route area"} · {distance.toFixed(1)} km away</p>
-                      {report.createdAt && <p className="text-xs text-slate-400 mt-1">Reported {report.createdAt}</p>}
+                      <p className="text-sm font-semibold text-[#102a43]">{report.title}</p>
+                      <p className="text-xs text-[#526579] mt-1">Near {point.location} · {report.district || "Route area"} · {distance.toFixed(1)} km away</p>
+                      {report.createdAt && <p className="text-xs text-[#526579] mt-1">Reported {report.createdAt}</p>}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
                     <RiskBadge level={point.riskLevel} />
-                    <p className="text-xs text-slate-400 mt-1">route risk</p>
+                    <p className="text-xs text-[#526579] mt-1">route risk</p>
                   </div>
                 </div>
               ))}
@@ -291,7 +291,7 @@ export default function PredictionPage() {
         </Card>
       )}
       <div className="mt-6">
-        <p className="text-sm text-slate-300 mb-2">Route preview</p>
+        <p className="text-sm text-[#526579] mb-2">Route preview</p>
         <MapView routePoints={mapPoints} districts={routePoints.length > 0 ? districts ?? [] : []} height="520px" />
       </div>
     </div>

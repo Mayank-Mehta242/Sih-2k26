@@ -1,0 +1,125 @@
+import { useEffect, useRef, useState } from "react";
+import { Bot, MessageCircle, Send, X } from "lucide-react";
+import { incidentService } from "../services/incidentService.js";
+import { weatherService } from "../services/weatherService.js";
+import { NER_REGION_CENTER } from "../utils/constants.js";
+
+const WELCOME_MESSAGE = {
+  from: "bot",
+  text: "Hello. Ask me about current weather or approved landslide reports in the North Eastern Region.",
+};
+
+function createReply(question, weather, incidents) {
+  const normalizedQuestion = question.toLowerCase();
+  const asksWeather = /weather|rain|rainfall|temperature|temp|humidity|wind|condition|forecast/.test(normalizedQuestion);
+  const asksLandslide = /landslide|slide|road block|debris|incident|blocked road|risk/.test(normalizedQuestion);
+
+  if (asksWeather && weather) {
+    return `Current regional weather: ${weather.condition}, ${weather.temperatureC}°C, ${weather.humidityPct}% humidity, ${weather.rainfallMm} mm rainfall, and wind at ${weather.windKmh} km/h.`;
+  }
+
+  if (asksLandslide) {
+    if (!incidents.length) return "There are no approved landslide or incident reports available right now.";
+    const reportSummary = incidents
+      .slice(0, 3)
+      .map((incident) => `${incident.title} near ${incident.district || "the reported area"}`)
+      .join("; ");
+    const remaining = incidents.length > 3 ? ` There are ${incidents.length - 3} more approved reports.` : "";
+    return `I found ${incidents.length} approved incident report${incidents.length === 1 ? "" : "s"}: ${reportSummary}.${remaining} Check the map and local authorities before travelling.`;
+  }
+
+  if (asksWeather || asksLandslide) return "I could not load the latest information. Please try again shortly.";
+  return "I can help with regional weather and approved landslide or incident reports. Try asking, ‘What is the weather?’ or ‘Are there any landslide reports?’";
+}
+
+export default function SafetyChatbot() {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
+  const [question, setQuestion] = useState("");
+  const [weather, setWeather] = useState(null);
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef(null);
+
+  useEffect(() => {
+    if (!open || weather || loading) return;
+    setLoading(true);
+    Promise.all([
+      weatherService.getWeather(NER_REGION_CENTER.lat, NER_REGION_CENTER.lng),
+      incidentService.list("approved"),
+    ])
+      .then(([weatherData, incidentData]) => {
+        setWeather(weatherData);
+        setIncidents(incidentData);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [open, weather, loading]);
+
+  useEffect(() => {
+    if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, open]);
+
+  function submitQuestion(event) {
+    event.preventDefault();
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) return;
+    setMessages((current) => [
+      ...current,
+      { from: "user", text: trimmedQuestion },
+      { from: "bot", text: createReply(trimmedQuestion, weather, incidents) },
+    ]);
+    setQuestion("");
+  }
+
+  return (
+    <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
+      {open && (
+        <section className="flex h-[min(30rem,calc(100vh-7rem))] max-h-[30rem] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-xl border border-[#b8dfe1] bg-white shadow-2xl shadow-[#102a43]/20" aria-label="PahadSuraksha assistant">
+          <header className="flex items-center justify-between bg-[#102a43] px-4 py-3 text-white">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#087f8c]">
+                <Bot className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="text-sm font-bold">Safety assistant</p>
+                <p className="text-xs text-[#b8eef0]">Weather and incident updates</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} className="rounded p-1 text-white hover:bg-white/15" aria-label="Close assistant" title="Close assistant">
+              <X className="h-5 w-5" />
+            </button>
+          </header>
+
+          <div className="flex-1 space-y-3 overflow-y-auto bg-[#f5f8fa] p-3" aria-live="polite">
+            {messages.map((message, index) => (
+              <div key={`${message.from}-${index}`} className={`flex ${message.from === "user" ? "justify-end" : "justify-start"}`}>
+                <p className={`max-w-[88%] rounded-lg px-3 py-2 text-sm leading-5 ${message.from === "user" ? "bg-[#0b5266] text-white" : "border border-[#d5e3e7] bg-white text-[#243447]"}`}>
+                  {message.text}
+                </p>
+              </div>
+            ))}
+            {loading && <p className="text-xs text-[#526579]">Loading regional updates…</p>}
+            <div ref={endRef} />
+          </div>
+
+          <form onSubmit={submitQuestion} className="flex gap-2 border-t border-slate-200 bg-white p-3">
+            <input
+              className="input-field min-w-0 py-2 text-sm"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Ask about weather or landslides"
+              aria-label="Ask the safety assistant"
+            />
+            <button type="submit" className="btn-primary shrink-0 px-3" aria-label="Send question" title="Send question">
+              <Send className="h-4 w-4" />
+            </button>
+          </form>
+        </section>
+      )}
+      <button type="button" onClick={() => setOpen((current) => !current)} className="flex h-14 w-14 items-center justify-center rounded-full bg-[#0b5266] text-white shadow-lg shadow-[#102a43]/25 transition-transform hover:scale-105 hover:bg-[#083f50]" aria-label={open ? "Close safety assistant" : "Open safety assistant"} title="Safety assistant">
+        {open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />}
+      </button>
+    </div>
+  );
+}

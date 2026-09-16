@@ -15,11 +15,13 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import PredictionPage from "./pages/PredictionPage.jsx";
 import UserAccountPage from "./pages/UserAccountPage.jsx";
 import AdminDashboardPage from "./pages/AdminDashboardPage.jsx";
+import SafetyChatbot from "./components/SafetyChatbot.jsx";
 
 export default function App() {
   return (
     <>
       <Toaster position="top-right" />
+      <SafetyChatbot />
       <Routes>
         <Route element={<MainLayout />}>
           <Route path="/" element={<LandingPage />} />

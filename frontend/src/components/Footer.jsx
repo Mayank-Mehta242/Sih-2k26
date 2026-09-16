@@ -44,7 +44,7 @@ export default function Footer() {
 
       </div>
       <div className="border-t border-white/15 py-4 text-center text-xs text-slate-300">
-        © {new Date().getFullYear()} PahadSuraksha AI | Government of India style regional monitoring service
+        © {new Date().getFullYear()} PahadSuraksha AI | Government of India regional monitoring service
       </div>
     </footer>
   );
