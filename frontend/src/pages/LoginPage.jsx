@@ -27,7 +27,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] contour-surface flex items-center justify-center px-4 py-16">
+    <div className="relative isolate flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden px-4 py-16">
+      <div
+        className="absolute inset-0 -z-20 bg-cover bg-center"
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=2200&q=75')" }}
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 -z-10 bg-[#f4f7f9]/80" aria-hidden="true" />
       <div className="glass-panel w-full max-w-md p-7 sm:p-8">
         <h1 className="text-2xl font-bold text-[#102a43] mb-2">Login</h1>
         <p className="text-sm text-[#526579] mb-6">Sign in to report incidents and save locations.</p>
