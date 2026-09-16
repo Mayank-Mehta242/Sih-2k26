@@ -19,15 +19,15 @@ export default function DashboardLayout() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <div className="flex-1 flex">
-        <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r border-slate-700/80 bg-slate-900/95 backdrop-blur px-4 py-6 gap-1">
+        <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r border-slate-200 bg-white px-4 py-6 gap-1">
           {SIDEBAR_LINKS.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}
               end={link.to === "/dashboard"}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive ? "bg-forest-600 text-white shadow-md shadow-forest-600/25" : "text-slate-300 hover:text-slate-100 hover:bg-slate-800/80"
+                `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                  isActive ? "bg-[#e7f4f5] text-[#0b5266] font-semibold" : "text-slate-600 hover:text-[#102a43] hover:bg-slate-50"
                 }`
               }
             >

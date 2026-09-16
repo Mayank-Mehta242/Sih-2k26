@@ -113,8 +113,8 @@ export default function DashboardPage() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Risk Map</h1>
-          <p className="text-slate-200 text-sm mt-1">Click on a district to see conditions and risk level</p>
+          <h1 className="text-2xl font-bold text-[#102a43]">Risk map</h1>
+          <p className="text-[#526579] text-sm mt-1">Select a district to review current conditions and risk level.</p>
         </div>
         <div className="flex flex-wrap sm:flex-nowrap gap-2 w-full sm:w-auto">
           <form
@@ -133,7 +133,7 @@ export default function DashboardPage() {
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-white"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-[#102a43]"
               aria-label="Search district"
               title="Search district"
             >
@@ -153,7 +153,7 @@ export default function DashboardPage() {
             <LoadingSpinner label="Loading dashboard summary" />
           </div>
         ) : statsError ? (
-          <p className="sm:col-span-3 text-sm text-slate-200">{statsError}</p>
+          <p className="sm:col-span-3 text-sm text-[#526579]">{statsError}</p>
         ) : (
           <>
             <StatCard icon={MapPinned} value={selected?.name || stats?.monitoredDistrictName || "NER region"} label="Monitored region" />
@@ -169,14 +169,14 @@ export default function DashboardPage() {
             <LoadingSpinner label="Loading district data" />
           ) : districtsError ? (
             <Card title="Unable to load the risk map">
-              <p className="text-sm text-slate-200">{districtsError}</p>
+              <p className="text-sm text-[#526579]">{districtsError}</p>
               <button type="button" onClick={() => window.location.reload()} className="btn-secondary mt-3 text-sm">
                 Try again
               </button>
             </Card>
           ) : districts.length === 0 ? (
             <Card title="No district data">
-              <p className="text-sm text-slate-200">No monitored districts are available.</p>
+              <p className="text-sm text-[#526579]">No monitored districts are available.</p>
             </Card>
           ) : (
             <MapView
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                 </div>
               ) : weatherError ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-slate-200">{weatherError}</p>
+                  <p className="text-sm text-[#526579]">{weatherError}</p>
                   <button
                     type="button"
                     onClick={() => setWeatherRequest((request) => request + 1)}
@@ -241,8 +241,8 @@ export default function DashboardPage() {
 function Metric({ icon: Icon, label, value }) {
   return (
     <div>
-      <p className="text-xs text-slate-300 mb-0.5">{label}</p>
-      <p className="text-sm font-medium text-white">{value}</p>
+      <p className="text-xs text-[#526579] mb-0.5">{label}</p>
+      <p className="text-sm font-medium text-[#102a43]">{value}</p>
     </div>
   );
 }
@@ -251,7 +251,7 @@ function LegendRow({ color, label }) {
   return (
     <div className="flex items-center gap-2">
       <span className={`h-2 w-2 rounded-full ${color}`} />
-      <span className="text-slate-200">{label}</span>
+      <span className="text-[#526579]">{label}</span>
     </div>
   );
 }
