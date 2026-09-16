@@ -1,0 +1,65 @@
+services:
+  # Flask backend + XGBoost ML model
+  - type: web
+    name: pahadsuraksha-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT "app:create_app()"
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pahadsuraksha-db
+          property: connectionString
+      - key: FRONTEND_ORIGIN
+        value: https://pahadsuraksha-frontend.onrender.com
+      - key: SMS_ENABLED
+        value: "false"
+      - key: SMS_RAPIDAPI_KEY
+        sync: false
+      - key: TEXTFLOW_API_KEY
+        sync: false
+      - key: TEXTFLOW_API_URL
+        value: https://textflow-sms-api.p.rapidapi.com/send-sms
+      - key: TEXTFLOW_API_HOST
+        value: textflow-sms-api.p.rapidapi.com
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: RAPIDAPI_HOST
+        value: open-weather13.p.rapidapi.com
+      - key: RAPIDAPI_UA
+        value: RapidAPI-Playground
+      - key: ELEVATION_API_URL
+        value: https://api.open-elevation.com/api/v1/lookup
+      - key: WEATHER_CACHE_MINUTES
+        value: "30"
+
+  # React + Vite frontend
+  - type: web
+    runtime: static
+    name: pahadsuraksha-frontend
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeployTrigger: commit
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_USE_MOCK_DATA
+        value: "false"
+      - key: VITE_API_BASE_URL
+        value: https://pahadsuraksha-backend.onrender.com
+
+databases:
+  - name: pahadsuraksha-db
+    plan: free
+    databaseName: pahadsuraksha
+    user: pahadsuraksha
