@@ -6,8 +6,8 @@ import { normalizeRiskKey, RISK_STYLES } from "../utils/riskUtils.js";
 const RISK_HEX = {
   low: "#22A567",
   medium: "#E0B324",
-  high: "#E07A24",
-  extreme: "#C7362B",
+  high: "#2563EB",
+  extreme: "#7C3AED",
 };
 
 function ClickCapture({ onMapClick }) {
@@ -98,7 +98,7 @@ export default function MapView({ districts = [], routePoints = [], onSelectDist
             pathOptions={{
               color: RISK_HEX[normalizeRiskKey(d.risk)],
               fillColor: RISK_HEX[normalizeRiskKey(d.risk)],
-              fillOpacity: 0.55,
+              fillOpacity: 0.82,
               weight: 2,
             }}
             eventHandlers={{

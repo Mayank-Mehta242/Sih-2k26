@@ -196,8 +196,8 @@ export default function PredictionPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white mb-2">Route Landslide Risk</h1>
-      <p className="text-slate-200 mb-6">
+      <h1 className="text-2xl font-bold text-[#102a43] mb-2">Route Landslide Risk</h1>
+      <p className="text-[#526579] mb-6">
         Enter two locations to identify landslide-prone sections along your route before you travel.
       </p>
 

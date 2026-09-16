@@ -5,8 +5,8 @@ export default function StatCard({ icon: Icon, value, label }) {
         <Icon className="h-6 w-6 text-forest-500" strokeWidth={1.75} />
       </div>
       <div>
-        <p className="text-2xl font-display font-bold text-slate-50">{value}</p>
-        <p className="text-sm text-slate-400">{label}</p>
+        <p className="text-2xl font-display font-bold text-[#102a43]">{value}</p>
+        <p className="text-sm text-[#526579]">{label}</p>
       </div>
     </div>
   );

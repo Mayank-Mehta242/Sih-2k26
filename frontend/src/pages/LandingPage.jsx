@@ -4,6 +4,12 @@ import { ArrowRight, CalendarDays, MapPin, MessageSquare, ShieldCheck, ChevronLe
 import Card from "../components/Card.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { incidentService } from "../services/incidentService.js";
+import arunachalImage from "../../../images/arunachal.jpg";
+import assamImage from "../../../images/assam_0.jpg";
+import manipurImage from "../../../images/manipur_0 (1).jpg";
+import meghalayaImage from "../../../images/meghalaya_0.jpg";
+import mizoramImage from "../../../images/mizoram_0.jpg";
+import nagalandImage from "../../../images/nagaland_0.jpg.jpeg";
 
 export default function LandingPage() {
   const [incidents, setIncidents] = useState(null);
@@ -12,22 +18,32 @@ export default function LandingPage() {
   const regionalSlides = [
     {
       name: "Arunachal Pradesh",
-      image: "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1800&q=85",
+      image: arunachalImage,
       caption: "Mountain corridors and high-altitude communities",
     },
     {
       name: "Assam",
-      image: "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1800&q=85",
+      image: assamImage,
       caption: "River plains, rainfall, and connected districts",
     },
     {
+      name: "Manipur",
+      image: manipurImage,
+      caption: "Hill communities, roads, and seasonal rainfall",
+    },
+    {
       name: "Meghalaya",
-      image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1800&q=85",
+      image: meghalayaImage,
       caption: "Waterfalls, forests, and vulnerable hill roads",
     },
     {
+      name: "Mizoram",
+      image: mizoramImage,
+      caption: "Hilly corridors, bridges, and active monsoon terrain",
+    },
+    {
       name: "Nagaland",
-      image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1800&q=85",
+      image: nagalandImage,
       caption: "Living landscapes supported by local reporting",
     },
   ];
@@ -58,12 +74,12 @@ export default function LandingPage() {
         {regionalSlides.map((item, index) => (
           <div
             key={item.name}
-            className={`absolute inset-0 -z-10 bg-cover bg-center transition-opacity duration-1000 ${index === activeSlide ? "opacity-35" : "opacity-0"}`}
+            className={`absolute inset-0 -z-10 bg-cover bg-center transition-opacity duration-1000 ${index === activeSlide ? "opacity-55" : "opacity-0"}`}
             style={{ backgroundImage: `url(${item.image})` }}
             aria-hidden="true"
           />
         ))}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#102a43]/95 via-[#102a43]/75 to-[#102a43]/45" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#102a43]/80 via-[#102a43]/50 to-[#102a43]/20" />
         <div className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
             <div className="mb-5 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#b8eef0]">

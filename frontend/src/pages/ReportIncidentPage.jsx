@@ -4,6 +4,7 @@ import { ImagePlus, LocateFixed, Send } from "lucide-react";
 import Card from "../components/Card.jsx";
 import MapView from "../components/MapView.jsx";
 import { useGeolocation } from "../hooks/useGeolocation.js";
+import { searchLocation } from "../services/geocodingService.js";
 import { incidentService } from "../services/incidentService.js";
 
 export default function ReportIncidentPage() {
@@ -12,6 +13,8 @@ export default function ReportIncidentPage() {
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [coords, setCoords] = useState(null);
+  const [locationName, setLocationName] = useState("");
+  const [locationStatus, setLocationStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [incidents, setIncidents] = useState([]);
   const { position, locate, locating } = useGeolocation();
@@ -19,6 +22,35 @@ export default function ReportIncidentPage() {
   useEffect(() => {
     if (position) setCoords(position);
   }, [position]);
+
+  useEffect(() => {
+    const query = locationName.trim();
+    if (query.length < 3) {
+      setLocationStatus("");
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setLocationStatus("Searching for this location…");
+      try {
+        const result = await searchLocation(query, controller.signal);
+        if (!result) {
+          setLocationStatus("Location not found. Try adding the district or state.");
+          return;
+        }
+        setCoords({ lat: result.latitude, lng: result.longitude });
+        setLocationStatus(`Location found: ${result.displayName}`);
+      } catch (error) {
+        if (error.name !== "AbortError") setLocationStatus("Could not find this location. Enter coordinates manually.");
+      }
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [locationName]);
 
   useEffect(() => {
     incidentService.list("approved").then(setIncidents).catch(() => setIncidents([]));
@@ -29,6 +61,12 @@ export default function ReportIncidentPage() {
     if (!file) return;
     setImage(file);
     setImagePreview(URL.createObjectURL(file));
+  }
+
+  function handleMapClick(latlng) {
+    setLocationName("");
+    setLocationStatus("");
+    setCoords(latlng);
   }
 
   async function handleSubmit(e) {
@@ -54,6 +92,9 @@ export default function ReportIncidentPage() {
       setDescription("");
       setImage(null);
       setImagePreview(null);
+      setLocationName("");
+      setLocationStatus("");
+      setCoords(null);
     } catch (err) {
       toast.error("Could not submit report.");
     } finally {
@@ -108,12 +149,33 @@ export default function ReportIncidentPage() {
             <div>
               <div className="flex items-center justify-between gap-3 mb-2">
                 <p className="text-sm text-[#526579]">Location</p>
-                <button type="button" onClick={locate} className="btn-secondary text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationName("");
+                    setLocationStatus("");
+                    locate();
+                  }}
+                  className="btn-secondary text-sm"
+                >
                 <LocateFixed className="h-4 w-4" />
                 {locating ? "Locating…" : coords ? "Set" : "My Location"}
                 </button>
               </div>
               <p className="text-xs text-slate-400 mb-2">Click the map, type coordinates manually, or use your current location.</p>
+              <label className="block text-xs text-[#526579] mb-3">
+                Location name
+                <input
+                  className="input-field mt-1"
+                  value={locationName}
+                  onChange={(event) => {
+                    setLocationName(event.target.value);
+                    setCoords(null);
+                  }}
+                  placeholder="e.g. Tawang, Arunachal Pradesh"
+                />
+              </label>
+              {locationStatus && <p className="text-xs text-[#526579] mb-3" aria-live="polite">{locationStatus}</p>}
               <div className="grid grid-cols-2 gap-3">
                 {[{ label: "Latitude", key: "lat", placeholder: "26.1445" }, { label: "Longitude", key: "lng", placeholder: "91.7362" }].map((coordinate) => (
                   <label key={coordinate.key} className="text-xs text-[#526579]">
@@ -126,10 +188,14 @@ export default function ReportIncidentPage() {
                       max={coordinate.key === "lat" ? 90 : 180}
                       className="input-field mt-1"
                       value={coords?.[coordinate.key] ?? ""}
-                      onChange={(event) => setCoords((current) => ({
-                        ...(current ?? { lat: "", lng: "" }),
-                        [coordinate.key]: event.target.value,
-                      }))}
+                      onChange={(event) => {
+                        setLocationName("");
+                        setLocationStatus("");
+                        setCoords((current) => ({
+                          ...(current ?? { lat: "", lng: "" }),
+                          [coordinate.key]: event.target.value,
+                        }));
+                      }}
                       placeholder={coordinate.placeholder}
                     />
                   </label>
@@ -151,7 +217,7 @@ export default function ReportIncidentPage() {
                 name: incident.title,
                 risk: "medium",
               }))}
-              onMapClick={setCoords}
+              onMapClick={handleMapClick}
               userPosition={coords}
               height="280px"
             />
