@@ -8,19 +8,19 @@
   }
   body {
     @apply font-body antialiased;
-    color: #e2e8f0;
-    background: linear-gradient(180deg, #162418 0%, #1e2d22 55%, #263428 100%);
+    color: #243447;
+    background: #f4f7f9;
     min-height: 100vh;
   }
   h1, h2, h3, h4 {
     @apply font-display font-bold tracking-tight;
-    color: #ffffff;
+    color: #102a43;
   }
   p {
     line-height: 1.65;
   }
   :focus-visible {
-    outline: 2px solid #2A9D6B;
+    outline: 2px solid #087f8c;
     outline-offset: 2px;
   }
   body, body * {
@@ -31,15 +31,15 @@
 @layer components {
   .contour-surface {
     background:
-      radial-gradient(1200px 600px at 0% 0%, rgba(42, 157, 107, 0.15), transparent 60%),
-      radial-gradient(800px 500px at 100% 10%, rgba(148, 163, 184, 0.1), transparent 65%),
-      linear-gradient(180deg, #18271b 0%, #1f2f23 60%, #26372a 100%);
+      linear-gradient(rgba(8, 127, 140, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(8, 127, 140, 0.04) 1px, transparent 1px),
+      #f4f7f9;
+    background-size: 36px 36px;
   }
 
   .glass-panel {
-    @apply border border-slate-700/90 rounded-2xl shadow-lg shadow-black/25;
-    background: linear-gradient(180deg, rgba(45, 56, 43, 0.9) 0%, rgba(38, 48, 37, 0.94) 100%);
-    backdrop-filter: blur(6px);
+    @apply border border-slate-200 rounded-lg shadow-sm;
+    background: #ffffff;
   }
 
   .card {
@@ -51,26 +51,25 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 bg-forest-600 hover:bg-forest-500
-      text-white font-semibold px-4 py-2.5 rounded-xl transition-all duration-200
-      hover:-translate-y-0.5 hover:shadow-lg hover:shadow-forest-500/20 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none;
+    @apply inline-flex items-center justify-center gap-2 bg-[#0b5266] hover:bg-[#083f50]
+      text-white font-semibold px-4 py-2.5 rounded-md transition-colors duration-200
+      disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 border border-slate-600
-      hover:bg-slate-800 text-slate-100 font-semibold px-4 py-2.5 rounded-xl transition-all duration-200
-      hover:-translate-y-0.5 hover:shadow-md hover:shadow-black/25;
+    @apply inline-flex items-center justify-center gap-2 border border-slate-300
+      bg-white hover:bg-slate-50 text-[#243447] font-semibold px-4 py-2.5 rounded-md transition-colors duration-200;
   }
 
   .input-field {
-    @apply w-full rounded-xl border border-slate-600 px-3 py-2.5
-      text-slate-100 placeholder:text-slate-400 focus:border-forest-500 focus:ring-2 focus:ring-forest-500/20 outline-none transition-all duration-150;
-    background: #202d23;
+    @apply w-full rounded-md border border-slate-300 px-3 py-2.5
+      text-slate-800 placeholder:text-slate-400 focus:border-[#087f8c] focus:ring-2 focus:ring-[#087f8c]/20 outline-none transition-all duration-150;
+    background: #ffffff;
   }
 }
 
 @layer utilities {
   .text-muted {
-    color: #cbd5e1;
+    color: #526579;
   }
 }

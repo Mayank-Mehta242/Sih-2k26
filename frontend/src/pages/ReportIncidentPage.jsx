@@ -63,13 +63,13 @@ export default function ReportIncidentPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-3xl font-bold text-white mb-8">Report an Incident</h1>
+      <h1 className="text-3xl font-bold text-[#102a43] mb-8">Report an incident</h1>
 
       <div className="grid lg:grid-cols-2 gap-6">
         <Card title="Incident Details">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm text-slate-200 mb-1.5 block">Title</label>
+              <label className="text-sm text-[#526579] mb-1.5 block">Title</label>
               <input
                 required
                 className="input-field"
@@ -80,7 +80,7 @@ export default function ReportIncidentPage() {
             </div>
 
             <div>
-              <label className="text-sm text-slate-200 mb-1.5 block">Description</label>
+              <label className="text-sm text-[#526579] mb-1.5 block">Description</label>
               <textarea
                 required
                 rows={3}
@@ -92,10 +92,10 @@ export default function ReportIncidentPage() {
             </div>
 
             <div>
-              <label className="text-sm text-slate-200 mb-1.5 block">Photo (optional)</label>
-              <label className="flex items-center gap-3 border border-dashed border-slate-600 rounded px-4 py-3 cursor-pointer hover:border-forest-500 transition-colors">
+              <label className="text-sm text-[#526579] mb-1.5 block">Photo (optional)</label>
+              <label className="flex items-center gap-3 border border-dashed border-slate-300 rounded-md px-4 py-3 cursor-pointer hover:border-[#087f8c] transition-colors">
                 <ImagePlus className="h-5 w-5 text-slate-500" />
-                <span className="text-sm text-slate-200">
+                <span className="text-sm text-[#526579]">
                   {image ? image.name : "Click to upload"}
                 </span>
                 <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
@@ -107,7 +107,7 @@ export default function ReportIncidentPage() {
 
             <div>
               <div className="flex items-center justify-between gap-3 mb-2">
-                <p className="text-sm text-slate-200">Location</p>
+                <p className="text-sm text-[#526579]">Location</p>
                 <button type="button" onClick={locate} className="btn-secondary text-sm">
                 <LocateFixed className="h-4 w-4" />
                 {locating ? "Locating…" : coords ? "Set" : "My Location"}
@@ -116,7 +116,7 @@ export default function ReportIncidentPage() {
               <p className="text-xs text-slate-400 mb-2">Click the map, type coordinates manually, or use your current location.</p>
               <div className="grid grid-cols-2 gap-3">
                 {[{ label: "Latitude", key: "lat", placeholder: "26.1445" }, { label: "Longitude", key: "lng", placeholder: "91.7362" }].map((coordinate) => (
-                  <label key={coordinate.key} className="text-xs text-slate-300">
+                  <label key={coordinate.key} className="text-xs text-[#526579]">
                     {coordinate.label}
                     <input
                       required
@@ -157,7 +157,7 @@ export default function ReportIncidentPage() {
             />
           </Card>
           <Card>
-            <p className="text-sm text-slate-200">
+            <p className="text-sm text-[#526579]">
               Reports are reviewed before appearing on the public map.
             </p>
           </Card>

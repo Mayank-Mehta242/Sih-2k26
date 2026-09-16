@@ -29,12 +29,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-[calc(100vh-4rem)] contour-surface flex items-center justify-center px-4 py-16">
       <div className="glass-panel w-full max-w-md p-7 sm:p-8">
-        <h1 className="text-2xl font-bold text-white mb-2">Login</h1>
-        <p className="text-sm text-slate-200 mb-6">Sign in to report incidents and save locations.</p>
+        <h1 className="text-2xl font-bold text-[#102a43] mb-2">Login</h1>
+        <p className="text-sm text-[#526579] mb-6">Sign in to report incidents and save locations.</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm text-slate-200 block mb-1.5">Login as</label>
+            <label className="text-sm text-[#526579] block mb-1.5">Login as</label>
             <select
               className="input-field"
               value={form.role}
@@ -46,7 +46,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-200 block mb-1.5">Email</label>
+            <label className="text-sm text-[#526579] block mb-1.5">Email</label>
             <input
               type="email"
               required
@@ -58,7 +58,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-200 block mb-1.5">Password</label>
+            <label className="text-sm text-[#526579] block mb-1.5">Password</label>
             <input
               type="password"
               required
@@ -76,9 +76,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-sm text-slate-200 text-center mt-6">
+        <p className="text-sm text-[#526579] text-center mt-6">
           Don't have an account?{" "}
-          <Link to="/register" className="text-forest-500 hover:text-forest-400 font-medium">
+          <Link to="/register" className="text-[#087f8c] hover:text-[#0b5266] font-medium">
             Create one
           </Link>
         </p>
