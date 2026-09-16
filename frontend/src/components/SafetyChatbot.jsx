@@ -70,6 +70,9 @@ function createReply(question, weather, incidents) {
   }
 
   if (asksWeather && weather) {
+    if (weather.condition?.toLowerCase().includes("data unavailable")) {
+      return "Live regional weather is temporarily unavailable. Please try again shortly.";
+    }
     return `Current regional weather: ${weather.condition}, ${weather.temperatureC}°C, ${weather.humidityPct}% humidity, ${weather.rainfallMm} mm rainfall, and wind at ${weather.windKmh} km/h.`;
   }
 
