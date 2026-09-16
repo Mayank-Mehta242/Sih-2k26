@@ -79,15 +79,14 @@ export default function SafetyChatbot() {
   useEffect(() => {
     if (!open || weather || loading) return;
     setLoading(true);
-    Promise.all([
+    Promise.allSettled([
       weatherService.getWeather(NER_REGION_CENTER.lat, NER_REGION_CENTER.lng),
       incidentService.list("approved"),
     ])
-      .then(([weatherData, incidentData]) => {
-        setWeather(weatherData);
-        setIncidents(incidentData);
+      .then(([weatherResult, incidentResult]) => {
+        if (weatherResult.status === "fulfilled") setWeather(weatherResult.value);
+        if (incidentResult.status === "fulfilled") setIncidents(incidentResult.value);
       })
-      .catch(() => {})
       .finally(() => setLoading(false));
   }, [open, weather, loading]);
 
