@@ -9,10 +9,45 @@ const WELCOME_MESSAGE = {
   text: "Hello. Ask me about current weather or approved landslide reports in the North Eastern Region.",
 };
 
+const OTHER_INDIAN_REGIONS = [
+  "andhra pradesh",
+  "bihar",
+  "chhattisgarh",
+  "goa",
+  "gujarat",
+  "haryana",
+  "himachal pradesh",
+  "jharkhand",
+  "karnataka",
+  "kerala",
+  "madhya pradesh",
+  "maharashtra",
+  "odisha",
+  "punjab",
+  "rajasthan",
+  "tamil nadu",
+  "telangana",
+  "uttar pradesh",
+  "uttarakhand",
+  "west bengal",
+  "andaman",
+  "chandigarh",
+  "delhi",
+  "jammu",
+  "ladakh",
+  "lakshadweep",
+  "puducherry",
+];
+
 function createReply(question, weather, incidents) {
   const normalizedQuestion = question.toLowerCase();
+  const mentionsOtherRegion = OTHER_INDIAN_REGIONS.some((region) => normalizedQuestion.includes(region));
   const asksWeather = /weather|rain|rainfall|temperature|temp|humidity|wind|condition|forecast/.test(normalizedQuestion);
   const asksLandslide = /landslide|slide|road block|debris|incident|blocked road|risk/.test(normalizedQuestion);
+
+  if (mentionsOtherRegion) {
+    return "I can only answer questions about Arunachal Pradesh, Assam, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, and Tripura.";
+  }
 
   if (asksWeather && weather) {
     return `Current regional weather: ${weather.condition}, ${weather.temperatureC}°C, ${weather.humidityPct}% humidity, ${weather.rainfallMm} mm rainfall, and wind at ${weather.windKmh} km/h.`;
