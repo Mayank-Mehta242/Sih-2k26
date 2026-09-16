@@ -1,8 +1,8 @@
 import os
 from flask import Flask, jsonify
 
-from app.config import Config
-from app.extensions import db, jwt, cors, migrate
+from backend.app.config import Config
+from backend.app.extensions import db, jwt, cors, migrate
 
 
 def create_app(config_class=Config):
@@ -23,15 +23,14 @@ def create_app(config_class=Config):
     )
 
     # --- models (imported so SQLAlchemy/Flask-Migrate see them) ---
-    from app import models  # noqa: F401
+   from backend.app import models
 
-    # --- blueprints ---
-    from app.routes.auth import auth_bp
-    from app.routes.districts import districts_bp
-    from app.routes.predict import predict_bp
-    from app.routes.weather import weather_bp
-    from app.routes.incidents import incidents_bp
-    from app.routes.admin import admin_bp
+from backend.app.routes.auth import auth_bp
+from backend.app.routes.districts import districts_bp
+from backend.app.routes.predict import predict_bp
+from backend.app.routes.weather import weather_bp
+from backend.app.routes.incidents import incidents_bp
+from backend.app.routes.admin import admin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(districts_bp)
