@@ -9,7 +9,34 @@ const WELCOME_MESSAGE = {
   text: "Hello. Ask me about current weather or approved landslide reports in the North Eastern Region.",
 };
 
-const OTHER_INDIAN_REGIONS = [
+const NER_LOCATIONS = [
+  "arunachal pradesh",
+  "assam",
+  "manipur",
+  "meghalaya",
+  "mizoram",
+  "nagaland",
+  "sikkim",
+  "tripura",
+  "north east",
+  "northeast",
+  "north eastern",
+  "north-eastern",
+  "ner",
+];
+
+const NER_STATE_COORDINATES = [
+  { label: "Arunachal Pradesh", key: "arunachal pradesh", lat: 27.0844, lng: 93.6053 },
+  { label: "Assam", key: "assam", lat: 26.1445, lng: 91.7362 },
+  { label: "Manipur", key: "manipur", lat: 24.817, lng: 93.9368 },
+  { label: "Meghalaya", key: "meghalaya", lat: 25.5788, lng: 91.8933 },
+  { label: "Mizoram", key: "mizoram", lat: 23.7271, lng: 92.7176 },
+  { label: "Nagaland", key: "nagaland", lat: 25.6751, lng: 94.1086 },
+  { label: "Sikkim", key: "sikkim", lat: 27.3389, lng: 88.6065 },
+  { label: "Tripura", key: "tripura", lat: 23.8315, lng: 91.2868 },
+];
+
+const NON_NER_LOCATIONS = [
   "andhra pradesh",
   "bihar",
   "chhattisgarh",
@@ -37,20 +64,32 @@ const OTHER_INDIAN_REGIONS = [
   "ladakh",
   "lakshadweep",
   "puducherry",
+  "tehri",
+  "garhwal",
 ];
 
-function createReply(question, weather, incidents) {
+function getRequestedState(question) {
   const normalizedQuestion = question.toLowerCase();
-  const mentionsOtherRegion = OTHER_INDIAN_REGIONS.some((region) => normalizedQuestion.includes(region));
+  return NER_STATE_COORDINATES.find((state) => normalizedQuestion.includes(state.key));
+}
+
+function createReply(question, weather, incidents, locationLabel = "regional") {
+  const normalizedQuestion = question.toLowerCase();
+  const mentionsNER = NER_LOCATIONS.some((location) => normalizedQuestion.includes(location));
+  const mentionsNonNER = NON_NER_LOCATIONS.some((location) => normalizedQuestion.includes(location));
+  const asksAboutSpecificLocation = /\b(?:in|near|at|around|from)\s+[a-z]/.test(normalizedQuestion);
   const asksWeather = /weather|rain|rainfall|temperature|temp|humidity|wind|condition|forecast/.test(normalizedQuestion);
   const asksLandslide = /landslide|slide|road block|debris|incident|blocked road|risk/.test(normalizedQuestion);
 
-  if (mentionsOtherRegion) {
+  if (mentionsNonNER || (asksAboutSpecificLocation && !mentionsNER)) {
     return "I can only answer questions about Arunachal Pradesh, Assam, Manipur, Meghalaya, Mizoram, Nagaland, Sikkim, and Tripura.";
   }
 
   if (asksWeather && weather) {
-    return `Current regional weather: ${weather.condition}, ${weather.temperatureC}°C, ${weather.humidityPct}% humidity, ${weather.rainfallMm} mm rainfall, and wind at ${weather.windKmh} km/h.`;
+    if (weather.condition?.toLowerCase().includes("data unavailable")) {
+      return "Live regional weather is temporarily unavailable. Please try again shortly.";
+    }
+    return `Current ${locationLabel} weather: ${weather.condition}, ${weather.temperatureC}°C, ${weather.humidityPct}% humidity, ${weather.rainfallMm} mm rainfall, and wind at ${weather.windKmh} km/h.`;
   }
 
   if (asksLandslide) {
@@ -73,6 +112,7 @@ export default function SafetyChatbot() {
   const [question, setQuestion] = useState("");
   const [weather, setWeather] = useState(null);
   const [incidents, setIncidents] = useState([]);
+  const [stateWeather, setStateWeather] = useState({});
   const [loading, setLoading] = useState(false);
   const endRef = useRef(null);
 
@@ -94,16 +134,40 @@ export default function SafetyChatbot() {
     if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
-  function submitQuestion(event) {
+  async function submitQuestion(event) {
     event.preventDefault();
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion) return;
+    const requestedState = getRequestedState(trimmedQuestion);
+    const responseId = `bot-${Date.now()}`;
+    const selectedWeather = requestedState ? stateWeather[requestedState.key] : weather;
+    const selectedIncidents = requestedState
+      ? incidents.filter((incident) => `${incident.title} ${incident.district || ""}`.toLowerCase().includes(requestedState.key))
+      : incidents;
     setMessages((current) => [
       ...current,
       { from: "user", text: trimmedQuestion },
-      { from: "bot", text: createReply(trimmedQuestion, weather, incidents) },
+      { from: "bot", text: requestedState && !selectedWeather ? `Loading ${requestedState.label} weather...` : createReply(trimmedQuestion, selectedWeather, selectedIncidents, requestedState?.label) , id: responseId },
     ]);
     setQuestion("");
+
+    if (requestedState && !selectedWeather) {
+      try {
+        const latestWeather = await weatherService.getWeather(requestedState.lat, requestedState.lng);
+        setStateWeather((current) => ({ ...current, [requestedState.key]: latestWeather }));
+        setMessages((current) => current.map((message) => (
+          message.id === responseId
+            ? { ...message, text: createReply(trimmedQuestion, latestWeather, selectedIncidents, requestedState.label) }
+            : message
+        )));
+      } catch {
+        setMessages((current) => current.map((message) => (
+          message.id === responseId
+            ? { ...message, text: "Live state weather is temporarily unavailable. Please try again shortly." }
+            : message
+        )));
+      }
+    }
   }
 
   return (
