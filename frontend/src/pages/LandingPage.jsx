@@ -6,7 +6,7 @@ import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { incidentService } from "../services/incidentService.js";
 import arunachalImage from "../../../images/arunachal.jpg";
 import assamImage from "../../../images/assam_0.jpg";
-import manipurImage from "../../../images/manipur_0 (1).jpg";
+import manipurImage from "../../../images/manipur.jpg";
 import meghalayaImage from "../../../images/meghalaya_0.jpg";
 import mizoramImage from "../../../images/mizoram_0.jpg";
 import nagalandImage from "../../../images/nagaland_0.jpg.jpeg";
