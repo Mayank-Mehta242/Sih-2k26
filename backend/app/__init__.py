@@ -21,7 +21,7 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     cors.init_app(
         app,
-        resources={r"/api/*": {"origins": app.config["FRONTEND_ORIGIN"]}},
+        resources={r"/api/*": {"origins": app.config["FRONTEND_ORIGINS"]}},
         supports_credentials=True,
     )
 

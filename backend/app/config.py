@@ -4,6 +4,22 @@ from datetime import timedelta
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def _frontend_origins():
+    """Return the browser origins permitted to call the public API.
+
+    ``FRONTEND_ORIGINS`` supports a comma-separated list so local development
+    and one or more deployed frontends can use the same Render service.
+    ``FRONTEND_ORIGIN`` remains supported for existing deployments.
+    """
+    configured = os.environ.get("FRONTEND_ORIGINS") or os.environ.get("FRONTEND_ORIGIN")
+    if configured:
+        return tuple(origin.strip().rstrip("/") for origin in configured.split(",") if origin.strip())
+    return (
+        "http://localhost:5173",
+        "https://sih-2k26-five.vercel.app",
+    )
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret")
@@ -14,7 +30,7 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:5173")
+    FRONTEND_ORIGINS = _frontend_origins()
 
     SMS_ENABLED = os.environ.get("SMS_ENABLED", "false").lower() == "true"
     SMS_RAPIDAPI_KEY = os.environ.get("SMS_RAPIDAPI_KEY", "")
