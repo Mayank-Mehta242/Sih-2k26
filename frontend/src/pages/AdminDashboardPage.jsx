@@ -4,6 +4,7 @@ import { Check, X, Eye, Trash2, FileDown, FileSpreadsheet, Pencil, Save, Undo2 }
 import Card from "../components/Card.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { incidentService } from "../services/incidentService.js";
+import { resolveApiUrl } from "../services/api.js";
 
 export default function AdminDashboardPage() {
   const [reports, setReports] = useState(null);
@@ -122,12 +123,12 @@ export default function AdminDashboardPage() {
                       {r.imageUrl ? (
                         <button
                           type="button"
-                          onClick={() => setPreview({ url: r.imageUrl, title: r.title })}
+                          onClick={() => setPreview({ url: resolveApiUrl(r.imageUrl), title: r.title })}
                           className="inline-flex items-center gap-2 text-forest-500 hover:text-forest-400"
                           aria-label={`View image for ${r.title}`}
                         >
                           <img
-                            src={r.imageUrl}
+                            src={resolveApiUrl(r.imageUrl)}
                             alt={`Evidence for ${r.title}`}
                             className="h-12 w-16 rounded object-cover border border-slate-600"
                           />

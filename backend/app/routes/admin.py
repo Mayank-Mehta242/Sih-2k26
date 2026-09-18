@@ -3,6 +3,7 @@ import csv
 import os
 import sqlite3
 import tempfile
+import zipfile
 
 from flask import Blueprint, current_app, jsonify, request, Response, send_file
 from sqlalchemy import text
@@ -17,6 +18,12 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
 
 SQLITE_IMPORT_TABLES = ("users", "districts", "incidents", "predictions", "notifications", "weather_cache")
+ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _migration_authorized():
+    expected_token = current_app.config["DATABASE_MIGRATION_TOKEN"]
+    return expected_token and request.headers.get("X-Migration-Token") == expected_token
 
 
 @admin_bp.post("/migrate-sqlite")
@@ -27,8 +34,7 @@ def migrate_sqlite():
     It is designed for an empty Render PostgreSQL database and replaces its
     contents only when the caller explicitly supplies replace=true.
     """
-    expected_token = current_app.config["DATABASE_MIGRATION_TOKEN"]
-    if not expected_token or request.headers.get("X-Migration-Token") != expected_token:
+    if not _migration_authorized():
         return jsonify({"error": "Migration is disabled or unauthorized."}), 403
     if not current_app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql"):
         return jsonify({"error": "DATABASE_URL must point to PostgreSQL before importing."}), 400
@@ -91,6 +97,36 @@ def migrate_sqlite():
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+@admin_bp.post("/migrate-uploads")
+def migrate_uploads():
+    """One-time restore of incident image files after a SQLite migration."""
+    if not _migration_authorized():
+        return jsonify({"error": "Migration is disabled or unauthorized."}), 403
+
+    archive = request.files.get("images")
+    if not archive or not archive.filename.lower().endswith(".zip"):
+        return jsonify({"error": "Upload a ZIP file in the images field."}), 400
+
+    try:
+        with zipfile.ZipFile(archive) as source:
+            files = [
+                entry for entry in source.infolist()
+                if not entry.is_dir()
+                and os.path.basename(entry.filename) == entry.filename
+                and os.path.splitext(entry.filename)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+            ]
+            if not files:
+                return jsonify({"error": "The ZIP does not contain supported image files."}), 400
+            os.makedirs(current_app.config["UPLOAD_FOLDER"], exist_ok=True)
+            for entry in files:
+                destination = os.path.join(current_app.config["UPLOAD_FOLDER"], entry.filename)
+                with source.open(entry) as uploaded_file, open(destination, "wb") as output_file:
+                    output_file.write(uploaded_file.read())
+        return jsonify({"message": "Incident images restored.", "restored": len(files)}), 200
+    except zipfile.BadZipFile:
+        return jsonify({"error": "The uploaded file is not a valid ZIP archive."}), 400
 
 
 @admin_bp.get("/incidents")

@@ -4,6 +4,7 @@ import { ArrowRight, CalendarDays, MapPin, MessageSquare, ShieldCheck, ChevronLe
 import Card from "../components/Card.jsx";
 import LoadingSpinner from "../components/LoadingSpinner.jsx";
 import { incidentService } from "../services/incidentService.js";
+import { resolveApiUrl } from "../services/api.js";
 import arunachalImage from "../../../images/arunachal.jpg";
 import assamImage from "../../../images/assam_0.jpg";
 import manipurImage from "../../../images/manipur.jpg";
@@ -181,7 +182,7 @@ export default function LandingPage() {
               <Card key={incident.id} className="border-t-4 border-t-[#0b5266] p-5">
                 {incident.imageUrl && (
                   <img
-                    src={incident.imageUrl}
+                    src={resolveApiUrl(incident.imageUrl)}
                     alt={`Evidence for ${incident.title}`}
                     className="mb-4 h-40 w-full rounded object-cover border border-slate-600"
                   />

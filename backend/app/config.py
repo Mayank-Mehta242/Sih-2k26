@@ -49,7 +49,9 @@ class Config:
     ELEVATION_API_URL = os.environ.get("ELEVATION_API_URL", "https://api.open-elevation.com/api/v1/lookup")
     WEATHER_CACHE_MINUTES = int(os.environ.get("WEATHER_CACHE_MINUTES", "30"))
 
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads", "incidents")
+    # Set this to a Render persistent-disk path (for example
+    # /var/data/incidents) in production so uploaded evidence survives deploys.
+    UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", os.path.join(BASE_DIR, "uploads", "incidents"))
     MAX_CONTENT_LENGTH = 8 * 1024 * 1024  # 8 MB uploads
 
     ML_MODEL_PATH = os.path.join(BASE_DIR, "machine_learning", "landslide_xgboost_model.pkl")
