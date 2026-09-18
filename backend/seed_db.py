@@ -36,6 +36,11 @@ def seed():
 
         if "review_comment" not in {column["name"] for column in inspect(db.engine).get_columns("incidents")}:
             db.session.execute(text("ALTER TABLE incidents ADD COLUMN review_comment TEXT"))
+        incident_columns = {column["name"] for column in inspect(db.engine).get_columns("incidents")}
+        if "image_data" not in incident_columns:
+            db.session.execute(text("ALTER TABLE incidents ADD COLUMN image_data BYTEA"))
+        if "image_mimetype" not in incident_columns:
+            db.session.execute(text("ALTER TABLE incidents ADD COLUMN image_mimetype VARCHAR(100)"))
         district_columns = {column["name"] for column in inspect(db.engine).get_columns("districts")}
         if "elevation_m" not in district_columns:
             db.session.execute(text("ALTER TABLE districts ADD COLUMN elevation_m FLOAT NOT NULL DEFAULT 500"))

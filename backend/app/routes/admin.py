@@ -119,12 +119,16 @@ def migrate_uploads():
             ]
             if not files:
                 return jsonify({"error": "The ZIP does not contain supported image files."}), 400
-            os.makedirs(current_app.config["UPLOAD_FOLDER"], exist_ok=True)
+            restored = 0
             for entry in files:
-                destination = os.path.join(current_app.config["UPLOAD_FOLDER"], entry.filename)
-                with source.open(entry) as uploaded_file, open(destination, "wb") as output_file:
-                    output_file.write(uploaded_file.read())
-        return jsonify({"message": "Incident images restored.", "restored": len(files)}), 200
+                incident = Incident.query.filter_by(image_path=entry.filename).first()
+                if incident:
+                    incident.image_data = source.read(entry)
+                    extension = os.path.splitext(entry.filename)[1].lower().lstrip(".")
+                    incident.image_mimetype = "image/jpeg" if extension == "jpg" else f"image/{extension}"
+                    restored += 1
+            db.session.commit()
+        return jsonify({"message": "Incident images restored.", "restored": restored}), 200
     except zipfile.BadZipFile:
         return jsonify({"error": "The uploaded file is not a valid ZIP archive."}), 400
 

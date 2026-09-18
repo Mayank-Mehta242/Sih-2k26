@@ -13,6 +13,10 @@ class Incident(db.Model):
     lat = db.Column(db.Float, nullable=False)
     lng = db.Column(db.Float, nullable=False)
     image_path = db.Column(db.String(255), nullable=True)  # relative path under uploads/
+    # Evidence images are stored in PostgreSQL so they survive Render deploys
+    # without requiring a persistent disk.
+    image_data = db.Column(db.LargeBinary, nullable=True)
+    image_mimetype = db.Column(db.String(100), nullable=True)
     status = db.Column(db.String(20), nullable=False, default="pending")  # pending|approved|rejected
     review_comment = db.Column(db.Text, nullable=True)
     reporter_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=True)

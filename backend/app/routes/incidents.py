@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from flask import Blueprint, request, jsonify, current_app, send_from_directory
+from flask import Blueprint, request, jsonify, current_app, Response, send_from_directory
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from werkzeug.utils import secure_filename
 
@@ -47,14 +47,16 @@ def submit_incident():
         return jsonify({"error": "title, lat, and lng are required."}), 400
 
     image_path = None
+    image_data = None
+    image_mimetype = None
     file = request.files.get("image")
     if file and file.filename:
         if not _allowed(file.filename):
             return jsonify({"error": "Unsupported image type."}), 400
         ext = file.filename.rsplit(".", 1)[1].lower()
         image_path = f"{uuid.uuid4()}.{ext}"
-        os.makedirs(current_app.config["UPLOAD_FOLDER"], exist_ok=True)
-        file.save(os.path.join(current_app.config["UPLOAD_FOLDER"], secure_filename(image_path)))
+        image_data = file.read()
+        image_mimetype = file.mimetype or f"image/{ext}"
 
     reporter_id = None
     try:
@@ -70,6 +72,8 @@ def submit_incident():
         lat=lat,
         lng=lng,
         image_path=image_path,
+        image_data=image_data,
+        image_mimetype=image_mimetype,
         reporter_id=reporter_id,
     )
     db.session.add(incident)
@@ -80,6 +84,9 @@ def submit_incident():
 
 @incidents_bp.get("/uploads/<path:filename>")
 def serve_upload(filename):
+    incident = Incident.query.filter_by(image_path=filename).first()
+    if incident and incident.image_data:
+        return Response(incident.image_data, mimetype=incident.image_mimetype or "application/octet-stream")
     return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
 
 
@@ -152,7 +159,7 @@ def update_incident(incident_id):
 def delete_incident(incident_id):
     incident = Incident.query.get_or_404(incident_id)
 
-    if incident.image_path:
+    if incident.image_path and not incident.image_data:
         image_file = os.path.join(current_app.config["UPLOAD_FOLDER"], secure_filename(incident.image_path))
         if os.path.isfile(image_file):
             os.remove(image_file)
