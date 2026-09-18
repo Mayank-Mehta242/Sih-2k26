@@ -31,6 +31,9 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     FRONTEND_ORIGINS = _frontend_origins()
+    # Required only for the one-time SQLite-to-PostgreSQL import endpoint.
+    # Leave unset to disable that endpoint.
+    DATABASE_MIGRATION_TOKEN = os.environ.get("DATABASE_MIGRATION_TOKEN", "")
 
     SMS_ENABLED = os.environ.get("SMS_ENABLED", "false").lower() == "true"
     SMS_RAPIDAPI_KEY = os.environ.get("SMS_RAPIDAPI_KEY", "")
