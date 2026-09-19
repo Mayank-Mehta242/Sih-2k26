@@ -42,16 +42,15 @@ def get_weather(lat: float, lng: float):
         if fetched_at > datetime.now(timezone.utc) - timedelta(minutes=cache_minutes):
             return _cache_to_dict(cached)
 
-    if not current_app.config["RAPIDAPI_KEY"]:
-        # Vercel's bundled SQLite database is read-only. Return the demo
-        # fallback without trying to persist a cache entry there.
-        return _synthetic_weather()
-
     try:
-        data = _fetch_from_rapidapi(lat, lng)
+        data = _fetch_from_rapidapi(lat, lng) if current_app.config["RAPIDAPI_KEY"] else _fetch_from_open_meteo(lat, lng)
     except (KeyError, TypeError, ValueError, requests.RequestException):
-        # A provider outage or invalid key should not break district selection.
-        return _synthetic_weather()
+        # Open-Meteo is keyless and keeps the public weather endpoint useful
+        # when RapidAPI credentials are missing or its provider is unavailable.
+        try:
+            data = _fetch_from_open_meteo(lat, lng)
+        except (KeyError, TypeError, ValueError, requests.RequestException):
+            return _synthetic_weather()
 
     entry = WeatherCache(
         lat_key=lat_key,
@@ -73,6 +72,63 @@ def get_weather(lat: float, lng: float):
         db.session.rollback()
 
     return data
+
+
+def _fetch_from_open_meteo(lat, lng):
+    response = requests.get(
+        "https://api.open-meteo.com/v1/forecast",
+        params={
+            "latitude": lat,
+            "longitude": lng,
+            "current": "temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code",
+            "daily": "temperature_2m_max,precipitation_sum,relative_humidity_2m_mean,wind_speed_10m_max,weather_code",
+            "forecast_days": 7,
+            "timezone": "auto",
+        },
+        timeout=8,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    current = payload["current"]
+    daily = payload["daily"]
+    dates = daily["time"]
+    forecast = [
+        {
+            "day": datetime.fromisoformat(day).strftime("%a"),
+            "tempC": round(daily["temperature_2m_max"][index], 1),
+            "rainMm": round(daily["precipitation_sum"][index], 1),
+            "humidityPct": round(daily["relative_humidity_2m_mean"][index]),
+        }
+        for index, day in enumerate(dates)
+    ]
+    return {
+        "location": f"{lat:.2f}, {lng:.2f}",
+        "temperatureC": round(current["temperature_2m"], 1),
+        "humidityPct": round(current["relative_humidity_2m"]),
+        "rainfallMm": round(current["precipitation"], 1),
+        "windKmh": round(current["wind_speed_10m"], 1),
+        "elevationM": payload.get("elevation"),
+        "condition": _open_meteo_condition(current.get("weather_code")),
+        "forecast": forecast,
+    }
+
+
+def _open_meteo_condition(code):
+    if code in (0,):
+        return "Clear sky"
+    if code in (1, 2, 3):
+        return "Partly cloudy"
+    if code in (45, 48):
+        return "Foggy"
+    if code in (51, 53, 55, 56, 57):
+        return "Drizzle"
+    if code in (61, 63, 65, 66, 67, 80, 81, 82):
+        return "Rain"
+    if code in (71, 73, 75, 77, 85, 86):
+        return "Snow"
+    if code in (95, 96, 99):
+        return "Thunderstorm"
+    return "Mixed conditions"
 
 
 def _fetch_from_rapidapi(lat, lng):
