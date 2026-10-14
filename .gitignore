@@ -1,5 +1,0 @@
-.vercel
-.env*
-!frontend/.env.production
-node_modules/
-node_modules/

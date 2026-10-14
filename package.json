@@ -1,0 +1,11 @@
+{
+  "name": "sih-2k26",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix forntend/landslide_detection run dev",
+    "build": "npm --prefix forntend/landslide_detection run build",
+    "preview": "npm --prefix forntend/landslide_detection run preview",
+    "backend:test": ".\\backend\\LandSlideEarlyWarning-System-Backend\\mvnw.cmd -f backend/LandSlideEarlyWarning-System-Backend/pom.xml test",
+    "backend:run": ".\\backend\\LandSlideEarlyWarning-System-Backend\\mvnw.cmd -f backend/LandSlideEarlyWarning-System-Backend/pom.xml spring-boot:run"
+  }
+}
