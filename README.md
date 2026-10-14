@@ -1,317 +1,237 @@
 # PahadSuraksha
-### AI-Assisted Landslide Monitoring and Early-Warning Platform
+### Landslide Risk Monitoring & Early-Warning Support Platform
 
 <p align="center">
-  <strong>Monitor Risk. Report Hazards. Support Faster Response.</strong>
+  <strong>Observe Early. Understand Risk. Coordinate Response.</strong>
 </p>
 
 <p align="center">
-  A disaster-risk monitoring and public-awareness prototype designed for landslide-prone regions of Northeast India, with a focus on location-based risk information, monitoring data, incident reporting, and response coordination.
+  A disaster-risk platform concept to help communities and response teams understand landslide-related threats, report incidents, and coordinate timely action in vulnerable hill regions.
 </p>
 
 <p align="center">
-  <a href="https://sih-2k26-five.vercel.app/">Live Demo</a> ·
-  <a href="https://github.com/Mayank-Mehta242/Sih-2k26">Source Code</a>
+  <a href="https://sih-2k26-five.vercel.app/"><strong>Live Demo</strong></a> ·
+  <a href="https://github.com/Mayank-Mehta242/Sih-2k26"><strong>GitHub Repository</strong></a>
 </p>
 
 ---
 
-## Overview
+## 1. What is PahadSuraksha?
 
-**PahadSuraksha** is a web-based landslide monitoring and early-warning project developed in the context of the Smart India Hackathon 2026 problem space for an **AI-based early-warning and landslide-risk monitoring system for the North Eastern Region (NER)**.
+Landslides can damage roads, disrupt essential services, and put communities at risk—especially during periods of intense or prolonged rainfall. Responding effectively requires more than a map or an alert: information must be noticed, assessed, communicated, and followed by action.
 
-The project explores how a unified platform can present risk-related information, monitoring-station telemetry, active alerts, citizen-submitted reports, and operational views in one place. Its interface is designed to serve both the public and users responsible for monitoring and responding to potential hazards.
+**PahadSuraksha** is a Smart India Hackathon 2026 project concept for landslide-risk monitoring and early-warning support in the North Eastern Region (NER) of India. It brings monitoring views, risk-zone visualization, alerts, and incident reporting together in one web-based experience.
 
-The repository currently contains a React frontend demonstration and a Java/Spring Boot backend service. The frontend includes simulated monitoring and alert data for demonstration; the presence of a dashboard or a risk label should not be interpreted as proof of live sensor connectivity or a validated predictive model.
+The aim is to support a clearer chain from **observing a possible hazard to reviewing it and coordinating a response**.
 
-> **Safety notice:** PahadSuraksha is a prototype and decision-support concept, not an official government warning service. It must not replace official advisories, local emergency instructions, field verification, or decisions by authorized disaster-management authorities. Demo values and sample alerts are not real-time hazard information.
+> **Important:** This is a prototype, not an official government warning system. Some interface values and alerts are simulated. Do not use the demo to make real-world safety decisions or treat its displayed risk levels as verified forecasts. Follow official advisories and local emergency instructions.
 
-## Problem
+## 2. The Big Picture
 
-Landslides and related slope hazards can threaten lives, damage infrastructure, interrupt road connectivity, and isolate communities. Heavy or prolonged rainfall, unstable terrain, and limited access to timely, location-specific information can make monitoring and response difficult.
+The platform is organized around a simple principle: information is useful when it leads to an informed next step.
 
-PahadSuraksha explores a digital workflow to help bring together:
-- Risk and monitoring information in a single interface.
-- Location-based visualization of zones, stations, and reported incidents.
-- Severity-based alerts and monitoring summaries.
-- Citizen incident reporting and alert-subscription interfaces.
-- Backend APIs and data models for monitoring nodes and incident reports.
-- A foundation for future integration of validated geospatial data and machine-learning risk models.
+```mermaid
+flowchart TD
+    A[Observe the Region] --> B[Gather Available Information]
+    B --> C[Identify Potential Risk]
+    C --> D[Show Risk on Map and Dashboard]
+    D --> E{Is an Incident Reported or Risk Flagged?}
+    E -- No --> F[Continue Monitoring]
+    F --> A
+    E -- Yes --> G[Create or Review an Alert]
+    G --> H[Notify Relevant Users]
+    H --> I[Verify Conditions and Coordinate Response]
+    I --> J[Record Status and Learn from the Event]
+    J --> A
+```
 
-## Key Features
+*This diagram represents the intended operating concept. It is not a claim that every stage is automated or connected to live data in the current demo.*
 
-### Public-facing portal
-- Government-service-inspired landing page and navigation.
-- Regional status, safety information, emergency-contact and public-information sections.
-- Area risk-checking interface and incident-reporting entry points.
-- Responsive layout for desktop and smaller screens.
+## 3. How It Works
 
-### Monitoring and visualization
-- Interactive map with risk zones, monitoring stations, road corridors, rivers, and incident markers.
-- Monitoring views for telemetry such as rainfall, soil moisture, tilt, vibration, and humidity.
-- Risk summaries and sensor-status indicators.
-- Time-series charts and severity-based visual indicators.
+### Step 1 — Observe
+Bring relevant information about a region into view, such as rainfall, terrain context, monitoring readings, and previously reported incidents, where those sources are available.
 
-### Alerts and incident reporting
-- Alert feed with severity levels and a detail view.
-- Alert acknowledgement interface.
-- Citizen landslide-report form with optional evidence upload support in the frontend/backend flow.
-- Backend endpoints for landslide reports and monitoring nodes.
+### Step 2 — Understand
+Present available observations in a readable form. Risk assessment should account for the source and freshness of data, the local context, and the limitations of any model or rule being used.
 
-### Application and access flows
-- Login and registration interfaces.
-- Protected-route and authentication-context components in the frontend.
-- Dashboard, monitoring, alerts, profile, and settings pages.
-- Service layer that separates API calls from UI components and provides a place to configure demonstration data.
+### Step 3 — Locate
+Use a map and area summaries to help users understand where a potential concern has been reported and which nearby zones or routes may need attention.
 
-**Implementation note:** Some screens and service responses use simulated data. Live integrations, sensor feeds, AI model inference, messaging, and production authentication should be considered available only when they are configured and verified in the target environment.
+### Step 4 — Report and Review
+Allow a citizen or field user to submit an incident report. The report can then be reviewed and verified by the appropriate responsible personnel before being treated as confirmed.
 
-## Technology Stack
+### Step 5 — Communicate
+Present alerts and relevant safety information so users can understand the nature and severity of a concern. Real notification delivery requires correctly configured services and verified recipients.
 
-| Layer | Technologies |
-|---|---|
-| Frontend | React 18, JavaScript, Vite |
-| Routing and UI | React Router, Radix UI primitives, Tailwind CSS, Lucide React |
-| Maps and visualization | Leaflet, React Leaflet, Recharts |
-| Backend | Java 21, Spring Boot |
-| API and validation | Spring Web, Spring Data JPA, Spring Validation |
-| Database support | PostgreSQL and H2 runtime dependencies |
-| Additional integrations | Twilio SDK and Cloudinary SDK dependencies are present in the backend build |
-| Build tools | npm, Maven Wrapper |
+### Step 6 — Respond and Update
+Response teams can use verified information and official procedures to determine next steps. Incident status should be updated as new information becomes available.
 
-The repository includes a Spring Boot backend and a frontend folder named `forntend` (spelling preserved from the current repository structure).
+## 4. Incident Reporting Workflow
 
-## Architecture
+```mermaid
+flowchart TD
+    A[Person Observes a Possible Landslide] --> B[Open Report Incident]
+    B --> C[Enter Location and Incident Details]
+    C --> D[Attach Supporting Evidence if Available]
+    D --> E[Submit Report]
+    E --> F[Report Enters Review Process]
+    F --> G{Can the Information Be Verified?}
+    G -- Needs More Information --> H[Request Clarification or Field Check]
+    H --> F
+    G -- Yes --> I[Mark as Verified]
+    G -- No --> J[Reject or Close with a Reason]
+    I --> K[Share Relevant Update with Responsible Teams]
+    K --> L[Track Response and Resolution]
+```
+
+The workflow describes a responsible reporting process: a submitted report is a signal for review, not automatic proof that a landslide has occurred.
+
+## 5. Risk Monitoring and Alert Lifecycle
+
+```mermaid
+flowchart TD
+    A[Available Observations] --> B[Check Data Quality and Timestamp]
+    B --> C{Is the Information Usable?}
+    C -- No --> D[Mark Data as Missing or Stale]
+    D --> E[Request Review / Continue Cautiously]
+    C -- Yes --> F[Assess Risk Using Configured Method]
+    F --> G[Assign a Provisional Risk Category]
+    G --> H[Display Location, Context and Data Freshness]
+    H --> I{Does It Require Attention?}
+    I -- No --> J[Continue Monitoring]
+    I -- Yes --> K[Create or Update Alert]
+    K --> L[Human Review and Appropriate Escalation]
+    L --> M[Record Action and Follow-up]
+    M --> A
+```
+
+A reliable early-warning workflow must distinguish a real observation from sample data, show when information was last updated, and make uncertainty visible. Risk categories alone are not a substitute for expert assessment.
+
+## 6. Main Areas of the Platform
+
+- **Regional overview:** a public-facing entry point for area status, safety information, and key updates.
+- **Risk map:** a geographic view of zones, monitoring stations, roads, rivers, and incident markers.
+- **Monitoring dashboard:** sensor-status summaries and visualizations of example telemetry readings.
+- **Alerts:** a severity-based list with details and an acknowledgement interface.
+- **Check your area:** an entry point for location-related risk information.
+- **Report an incident:** a form for sharing a possible landslide or related hazard.
+- **User and operator pages:** login, registration, dashboard, profile, and settings interfaces.
+
+Some of these experiences currently use demonstration data. Live sensor feeds, validated predictions, and end-to-end notification delivery must be separately configured and tested before they can be relied on.
+
+## 7. Who Is It For?
 
 ```mermaid
 flowchart LR
-    U[Public Users / Operators] --> FE[React + Vite Web App]
-    FE --> S[Frontend Service Layer]
-    S --> API[Spring Boot REST API]
-    API --> DB[(PostgreSQL / H2)]
-    API --> N[Monitoring Node APIs]
-    API --> R[Incident Report APIs]
-    FE -. demo mode / sample values .-> MOCK[Mock Data Service]
+    P[Residents and Travellers] -->|Check information / Report hazards| S[PahadSuraksha]
+    F[Field Personnel] -->|Share observations / Verify reports| S
+    S -->|Maps, summaries and alerts| O[Monitoring Operators]
+    O -->|Review and coordinate| A[Relevant Authorities]
+    A -->|Verified updates and response guidance| P
 ```
 
-The frontend service layer centralizes HTTP requests and authentication headers. The backend exposes REST endpoints for application resources, including monitoring nodes and landslide reports. Demo-mode/sample data can be used by parts of the interface without a live data source.
+The intended users include people seeking public safety information, field personnel reporting conditions, and monitoring or response teams reviewing possible hazards. Actual authority assignment and official escalation depend on the procedures of the responsible agencies.
 
-### Conceptual risk-monitoring workflow
+## 8. Project at a Glance
 
-1. Collect available weather, terrain, monitoring, and incident data.
-2. Validate source, timestamp, location, and data quality.
-3. Visualize monitoring readings and reported hazards.
-4. Assess risk using a validated model or documented rules when such a component is configured.
-5. Present relevant risk information and incidents to users.
-6. Enable authorized personnel to review reports and coordinate response.
-7. Record verification and resolution information where supported.
+| | |
+|---|---|
+| **Project** | PahadSuraksha |
+| **Domain** | Disaster risk reduction and landslide early-warning support |
+| **Problem space** | Smart India Hackathon 2026 — landslide-risk monitoring for the North Eastern Region |
+| **Primary goal** | Connect observations, risk information, incident reporting, and response workflows |
+| **Current status** | Prototype with frontend demonstration and backend service |
+| **Demo** | [sih-2k26-five.vercel.app](https://sih-2k26-five.vercel.app/) |
 
-This is the intended operational concept. It does not mean every stage is automated or connected to live operational data in the current deployment.
+## 9. Run the Project Locally
 
-## Repository Structure
+### Requirements
+- Node.js and npm
+- Java 21
+- PostgreSQL for a local PostgreSQL-backed run, with valid connection settings
 
-```text
-Sih-2k26/
-├── backend/
-│   └── LandSlideEarlyWarning-System-Backend/
-│       ├── src/
-│       │   ├── main/
-│       │   │   ├── java/                 # Spring Boot controllers, entities, DTOs and repositories
-│       │   │   └── resources/            # Application configuration
-│       │   └── test/                     # Backend tests and test configuration
-│       ├── Dockerfile
-│       ├── pom.xml
-│       ├── mvnw
-│       └── mvnw.cmd
-├── forntend/
-│   └── landslide_detection/
-│       ├── public/
-│       ├── src/
-│       │   ├── components/               # Shared UI and feature components
-│       │   ├── context/                  # Authentication and toast contexts
-│       │   ├── hooks/                    # Reusable React hooks
-│       │   ├── layouts/                  # Public and dashboard layouts
-│       │   ├── pages/                    # Landing, monitoring, alerts, dashboard, etc.
-│       │   ├── services/                 # API wrappers and mock data
-│       │   └── utils/                    # Formatters and validators
-│       ├── package.json
-│       └── vite.config.js
-├── package.json                          # Root convenience scripts
-└── README.md
-```
+### Start the frontend
 
-## Getting Started
-
-### Prerequisites
-
-Install the following before running the project:
-- Node.js and npm.
-- Java 21 JDK.
-- A working internet connection for package installation and any external map tiles.
-- PostgreSQL if you intend to run against PostgreSQL; the backend test configuration uses H2.
-
-### 1. Clone the repository
+Clone the repository and enter the project folder:
 
 ```bash
 git clone https://github.com/Mayank-Mehta242/Sih-2k26.git
 cd Sih-2k26
-```
-
-### 2. Run the frontend
-
-From the repository root:
-
-```bash
 npm install
 npm run dev
 ```
 
-The root scripts delegate to the frontend project in `forntend/landslide_detection`. Vite prints the local development URL in the terminal, commonly `http://localhost:5173`.
+Vite prints the local development URL in the terminal.
 
-To create and preview a production build:
+### Start the backend
 
-```bash
-npm run build
-npm run preview
-```
-
-Alternatively, run commands directly inside the frontend folder:
-
-```bash
-cd forntend/landslide_detection
-npm install
-npm run dev
-```
-
-### 3. Configure and run the backend
-
-Open a second terminal and move into the backend directory:
+In a second terminal:
 
 ```bash
 cd backend/LandSlideEarlyWarning-System-Backend
 ```
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-On macOS/Linux:
+macOS/Linux:
 
 ```bash
 chmod +x ./mvnw
 ./mvnw spring-boot:run
 ```
 
-The backend README specifies port **8080**. Configure database connection properties for your environment before running against PostgreSQL. The application uses Spring Boot configuration, so use environment-specific settings rather than committing credentials.
+The backend is configured to run on port **8080** by default. Configure the database connection for your environment before starting it. Do not commit passwords, tokens, or other private credentials.
 
-Common PostgreSQL environment variables include:
-
-```text
-SPRING_DATASOURCE_URL
-SPRING_DATASOURCE_USERNAME
-SPRING_DATASOURCE_PASSWORD
-```
-
-Set these to values appropriate for your own database. Do not commit API tokens, database passwords, messaging credentials, or other secrets.
-
-### 4. Frontend environment configuration
-
-The frontend API client supports these optional Vite environment variables:
-
-| Variable | Purpose |
-|---|---|
-| `VITE_API_BASE_URL` | Base URL for the primary API; defaults to the deployed origin's `/api` path in the browser |
-| `VITE_NODES_API_BASE_URL` | Optional separate base URL for node-related endpoints |
-| `VITE_USE_MOCKS` | Set to `true` to enable mock behavior where supported by the frontend services |
-
-Create a local `.env.local` file in `forntend/landslide_detection` when configuration is needed. Restart the Vite server after changing environment variables. Never put private secrets in variables prefixed with `VITE_`; those values are bundled into the client application.
-
-The backend and frontend must be configured to use compatible API URLs and routes for end-to-end functionality.
-
-## Testing
-
-Run backend tests from the repository root on Windows:
-
-```powershell
-npm run backend:test
-```
-
-Or run them directly from the backend directory:
-
-```powershell
-.\mvnw.cmd test
-```
-
-The backend test configuration uses an in-memory H2 database. Frontend build verification:
+To build the frontend for production:
 
 ```bash
 npm run build
 ```
 
-A successful build confirms compilation and bundling, not the accuracy of a landslide-risk model or the reliability of live monitoring integrations.
+To run backend tests from the backend folder:
 
-## Deployment
+```powershell
+.\mvnw.cmd test
+```
 
-A demonstration frontend is available at:
+## 10. Future Direction
 
-**[https://sih-2k26-five.vercel.app/](https://sih-2k26-five.vercel.app/)**
+The next stage is to strengthen the system behind the interface:
 
-Deployment configuration, backend availability, environment variables, API connectivity, and data freshness may change over time. Confirm these in the deployed environment before relying on any displayed result. The live demo should be treated as a project demonstration unless live data sources and operational status are explicitly verified.
+1. Connect trusted, timestamped weather and geospatial sources.
+2. Define a clear risk-prediction target and forecast window.
+3. Build and evaluate a model using documented, appropriately labelled historical data.
+4. Show data freshness, model version, uncertainty, and reasons for a risk flag.
+5. Improve incident verification, ownership, escalation, and resolution tracking.
+6. Test notification delivery, reliability, access control, and audit trails.
+7. Validate the workflow with domain experts before any operational deployment.
 
-## AI/ML Roadmap
+Model performance should only be reported after rigorous evaluation on held-out data. This README does not claim a particular prediction accuracy or that the current demo provides a verified live forecast.
 
-The project is intended to support future data-driven risk assessment. A credible predictive system requires more than displaying a risk label.
+## 11. Responsible Use
 
-Potential next steps include:
-1. Identify a clear prediction target and forecast horizon.
-2. Gather traceable, appropriately labelled landslide and non-landslide records.
-3. Integrate rainfall accumulation, slope, elevation, land cover, geology, and incident-history features where reliable data is available.
-4. Establish a reproducible preprocessing and feature-engineering pipeline.
-5. Compare a baseline model with candidates such as Random Forest and XGBoost; evaluate image-based models only where suitable labelled imagery exists.
-6. Evaluate precision, recall, F1-score, PR-AUC, calibration, false negatives, and performance across locations and seasons.
-7. Expose model version, input timestamp, uncertainty, and data freshness alongside predictions.
-8. Validate results with domain experts before any operational use.
-
-**No model accuracy or predictive performance is claimed in this README.** Such metrics should be published only after evaluation on a documented, held-out dataset.
-
-## Security and Responsible Use
-
-- Keep secrets and production credentials out of source control.
-- Configure CORS, authentication, authorization, input validation, and upload limits for the intended deployment.
-- Do not treat stale or missing readings as evidence of safe conditions.
-- Make sample/demo values visibly distinguishable from verified observations.
-- Protect sensitive location, user, and incident information.
-- Route emergency decisions through authorized officials and official procedures.
+- Treat demo data as illustrative, not as real observations.
+- Do not interpret missing data as a safe condition.
+- Keep sensitive information and credentials protected.
+- Verify incidents and high-risk observations through appropriate procedures.
+- Defer to official disaster-management authorities and emergency services for real-world decisions.
 
 ## Contributing
 
-Contributions and constructive feedback are welcome.
-
-1. Fork the repository.
-2. Create a feature branch: `git checkout -b feature/your-feature`.
-3. Make focused changes and test them.
-4. Commit your changes: `git commit -m "Add: describe your change"`.
-5. Push the branch and open a pull request describing the change, testing performed, and any configuration requirements.
-
-## Future Enhancements
-
-- Integrate reliable weather, terrain, and geospatial datasets.
-- Connect real monitoring devices and define data-quality checks.
-- Implement and evaluate a reproducible landslide-risk model.
-- Improve authority workflows for incident review, assignment, and resolution.
-- Add notification delivery with consent, deduplication, and delivery-status tracking.
-- Add automated tests, observability, and deployment documentation.
-
-## Acknowledgements
-
-This project was developed around the Smart India Hackathon 2026 problem space for landslide-risk monitoring and early warning in the North Eastern Region. Data providers, map providers, and third-party services should be credited according to the sources actually used in a deployment.
+Suggestions, issue reports, and contributions are welcome. Please describe the problem, the proposed change, and how you tested it when opening an issue or pull request.
 
 ## License
 
-No license is currently specified in the repository. Unless a license is added, reuse, redistribution, and modification are subject to the default copyright rules. Add an appropriate open-source license if you intend to permit reuse.
+A license has not yet been specified in this repository. Add a license file if you intend to grant others explicit permission to use, modify, or redistribute the project.
 
 ---
 
-**PahadSuraksha — an engineering prototype for exploring safer, more informed disaster-risk monitoring.**
+<p align="center">
+  <strong>PahadSuraksha</strong><br/>
+  From observation to awareness, and from awareness to coordinated response.
+</p>
