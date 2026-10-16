@@ -2,6 +2,7 @@ package Land.Slide.Early.Warn.system.LandSlidebyPranjal.Error;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -39,6 +40,16 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiError> handleValidationError(
+            MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .findFirst()
+                .orElse("Request validation failed.");
+        return new ResponseEntity<>(new ApiError(message, HttpStatus.BAD_REQUEST),
+                HttpStatus.BAD_REQUEST);
+    }
 
     // Any unexpected exception
     @ExceptionHandler(Exception.class)

@@ -55,5 +55,19 @@ Then verify that the backend returns it:
 Invoke-RestMethod http://localhost:8080/nodes/getAllNodes
 ```
 
+With the `local` profile, a sample road segment is also created. Its risk can
+be checked with:
+
+```powershell
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
+Invoke-RestMethod http://localhost:8080/road-segments
+Invoke-RestMethod http://localhost:8080/road-segments/1/risk
+```
+
+Create or update a segment by sending `roadName`, start/end coordinates, and
+any available risk inputs (`rainfall`, `terrainSusceptibility`,
+`recentIncidents`, `sensorRisk`, and `dataUpdatedAt`). Missing inputs are
+reported as data-quality warnings and do not count as zero risk.
+
 Tests use an in-memory H2 database and do not require PostgreSQL to be
 running.
