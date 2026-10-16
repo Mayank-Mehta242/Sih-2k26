@@ -1,5 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
+import {
+  Circle,
+  CircleMarker,
+  MapContainer as LeafletMap,
+  Popup,
+  TileLayer,
+} from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import h337 from 'heatmap.js';
 import {
   Activity,
@@ -31,6 +39,7 @@ const CUTOUT_CIRCLE_POINTS = 64;
 const HEATMAP_RADIUS_PX = 45;
 
 const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID ?? 'DEMO_MAP_ID';
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const RISK_LEVELS = [
   { key: 'safe', label: 'Safe', color: '#10b981', bg: '#d1fae5', min: 0 },
@@ -236,9 +245,9 @@ export default function Map() {
   useEffect(() => {
     if (mapRef.current || !mapContainerRef.current) return undefined;
 
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const apiKey = GOOGLE_MAPS_KEY;
     if (!apiKey) {
-      setError('Missing VITE_GOOGLE_MAPS_API_KEY in your .env file.');
+      setMapReady(true);
       return undefined;
     }
 
@@ -647,7 +656,11 @@ export default function Map() {
           className="relative h-[640px] overflow-hidden rounded-2xl border bg-secondary-100 shadow-sm"
           aria-label="Node risk map"
         >
-          <div ref={mapContainerRef} className="h-full w-full" />
+          {GOOGLE_MAPS_KEY ? (
+            <div ref={mapContainerRef} className="h-full w-full" />
+          ) : (
+            <LeafletNodeMap nodes={nodes} onSelect={setSelected} />
+          )}
 
           {!mapReady && !error && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/80">
@@ -693,6 +706,54 @@ export default function Map() {
         </aside>
       </div>
     </div>
+  );
+}
+
+function LeafletNodeMap({ nodes, onSelect }) {
+  const validNodes = nodes.filter(
+    (node) => Number.isFinite(node.latitude) && Number.isFinite(node.longitude)
+  );
+  const center = validNodes.length
+    ? [validNodes[0].latitude, validNodes[0].longitude]
+    : [30.382973, 78.467093];
+
+  return (
+    <LeafletMap
+      center={center}
+      zoom={validNodes.length ? 13 : 8}
+      className="h-full w-full"
+      scrollWheelZoom
+    >
+      <TileLayer
+        attribution="&copy; OpenStreetMap contributors"
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {validNodes.map((node) => {
+        const risk = computeRisk(node);
+        const position = [node.latitude, node.longitude];
+        return (
+          <Fragment key={node.id ?? node.nodeName}>
+            <Circle
+              center={position}
+              radius={CUTOUT_RADIUS_METERS}
+              pathOptions={{ color: risk.color, fillColor: risk.color, fillOpacity: 0.12 }}
+            />
+            <CircleMarker
+              center={position}
+              radius={12}
+              pathOptions={{ color: '#ffffff', weight: 3, fillColor: risk.color, fillOpacity: 1 }}
+              eventHandlers={{ click: () => onSelect({ ...node, ...risk }) }}
+            >
+              <Popup>
+                <strong>{node.nodeName}</strong>
+                <br />
+                {risk.label} risk ({Math.round(risk.probability * 100)}%)
+              </Popup>
+            </CircleMarker>
+          </Fragment>
+        );
+      })}
+    </LeafletMap>
   );
 }
 
