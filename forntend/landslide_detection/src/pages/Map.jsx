@@ -30,7 +30,11 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import ErrorMessage from '../components/ui/ErrorMessage';
-import { API_BASE_URL } from '../services/api';
+import {
+  API_BASE_URL,
+  assessRouteRisk,
+  getRoadSegments,
+} from '../services/api';
 
 const NODES_ENDPOINT = `${API_BASE_URL}/nodes/getAllNodes`;
 const POLL_INTERVAL_MS = 30000;
@@ -57,6 +61,33 @@ function getRiskTier(prob) {
   if (prob >= 0.6) return RISK_LEVELS[2];
   if (prob >= 0.35) return RISK_LEVELS[1];
   return RISK_LEVELS[0];
+}
+
+const SEGMENT_RISK_STYLES = {
+  LOW: { color: '#16a34a', label: 'LOW' },
+  MODERATE: { color: '#f59e0b', label: 'MODERATE' },
+  HIGH: { color: '#f97316', label: 'HIGH' },
+  CRITICAL: { color: '#dc2626', label: 'CRITICAL' },
+  UNKNOWN: { color: '#64748b', label: 'UNAVAILABLE' },
+};
+
+function segmentRiskStyle(risk) {
+  return SEGMENT_RISK_STYLES[risk?.riskLevel] ?? SEGMENT_RISK_STYLES.UNKNOWN;
+}
+
+function distanceSquared(a, b) {
+  const latScale = 111320;
+  const lonScale = 111320 * Math.cos((a[0] * Math.PI) / 180);
+  const dLat = (a[0] - b[0]) * latScale;
+  const dLon = (a[1] - b[1]) * lonScale;
+  return dLat * dLat + dLon * dLon;
+}
+
+function routeSegmentPath(segment) {
+  return [
+    [segment.startLatitude, segment.startLongitude],
+    [segment.endLatitude, segment.endLongitude],
+  ];
 }
 
 function clamp01(x) {
@@ -227,6 +258,7 @@ export default function Map() {
   const [route, setRoute] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
+  const [selectedRouteSegment, setSelectedRouteSegment] = useState(null);
 
   /* ---------------- fetch ---------------- */
   useEffect(() => {
@@ -278,12 +310,36 @@ export default function Map() {
         throw new Error('No route was found between these locations.');
       }
       const candidate = payload.routes[0];
+      let riskSegments = [];
+      try {
+        const segments = await getRoadSegments();
+        if (segments.length) {
+          const risks = await assessRouteRisk(segments.map((segment) => segment.id));
+          riskSegments = segments
+            .map((segment) => ({
+              segment,
+              risk: risks.find((item) => item.segmentId === segment.id),
+            }))
+            .filter(({ segment }) => {
+              const midpoint = [
+                (segment.startLatitude + segment.endLatitude) / 2,
+                (segment.startLongitude + segment.endLongitude) / 2,
+              ];
+              return candidate.geometry.coordinates.some(([lng, lat]) =>
+                distanceSquared(midpoint, [lat, lng]) < 2500 * 2500
+              );
+            });
+        }
+      } catch {
+        // Route rendering remains useful when the risk database is unavailable.
+      }
       setRoute({
         origin,
         destination,
         coordinates: candidate.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
         distanceKm: candidate.distance / 1000,
         durationMinutes: candidate.duration / 60,
+        riskSegments,
       });
     } catch (err) {
       setRoute(null);
@@ -316,13 +372,31 @@ export default function Map() {
       if (overlay) overlay.map = null;
     });
     routeOverlaysRef.current = [];
-    const polyline = new google.maps.Polyline({
-      path: route.coordinates.map(([lat, lng]) => ({ lat, lng })),
-      geodesic: true,
-      strokeColor: '#2563eb',
-      strokeOpacity: 0.9,
-      strokeWeight: 5,
-      map: mapRef.current,
+    const routePaths = route.riskSegments.length
+      ? route.riskSegments.map(({ segment, risk }) => ({
+          path: routeSegmentPath(segment).map(([lat, lng]) => ({ lat, lng })),
+          color: segmentRiskStyle(risk).color,
+          segment,
+          risk,
+        }))
+      : [{
+          path: route.coordinates.map(([lat, lng]) => ({ lat, lng })),
+          color: '#2563eb',
+        }];
+    routePaths.forEach(({ path, color, segment, risk }) => {
+      const polyline = new google.maps.Polyline({
+        path,
+        geodesic: true,
+        strokeColor: color,
+        strokeOpacity: 0.9,
+        strokeWeight: 6,
+        map: mapRef.current,
+        clickable: Boolean(segment),
+      });
+      if (segment) {
+        polyline.addListener('click', () => setSelectedRouteSegment({ segment, risk }));
+      }
+      routeOverlaysRef.current.push(polyline);
     });
     const originMarker = new google.maps.marker.AdvancedMarkerElement({
       position: { lat: route.origin.lat, lng: route.origin.lng },
@@ -334,7 +408,7 @@ export default function Map() {
       map: mapRef.current,
       title: 'Route destination',
     });
-    routeOverlaysRef.current.push(polyline, originMarker, destinationMarker);
+    routeOverlaysRef.current.push(originMarker, destinationMarker);
     return () => {
       polyline.setMap(null);
       originMarker.map = null;
@@ -371,9 +445,13 @@ export default function Map() {
           mapTypeId: 'roadmap',
           mapTypeControl: false,
           streetViewControl: false,
-          fullscreenControl: true,
-          zoomControl: true,
-          gestureHandling: 'greedy',
+          fullscreenControl: false,
+          zoomControl: false,
+          scrollwheel: false,
+          draggable: false,
+          gestureHandling: 'none',
+          disableDoubleClickZoom: true,
+          keyboardShortcuts: false,
           styles: [
             { elementType: 'geometry', stylers: [{ color: '#f7f8fa' }] },
             { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
@@ -670,7 +748,10 @@ export default function Map() {
           onClear={() => {
             setRoute(null);
             setRouteError(null);
+            setSelectedRouteSegment(null);
           }}
+          selectedSegment={selectedRouteSegment}
+          onSelectSegment={setSelectedRouteSegment}
         />
         <div className="flex items-center gap-2">
           {refreshedAt && (
@@ -771,7 +852,12 @@ export default function Map() {
           {GOOGLE_MAPS_KEY ? (
             <div ref={mapContainerRef} className="h-full w-full" />
           ) : (
-            <LeafletNodeMap nodes={nodes} onSelect={setSelected} route={route} />
+            <LeafletNodeMap
+              nodes={nodes}
+              onSelect={setSelected}
+              route={route}
+              onSelectSegment={setSelectedRouteSegment}
+            />
           )}
 
           {!mapReady && !error && (
@@ -821,7 +907,7 @@ export default function Map() {
   );
 }
 
-function LeafletNodeMap({ nodes, onSelect, route }) {
+function LeafletNodeMap({ nodes, onSelect, route, onSelectSegment }) {
   const validNodes = nodes.filter(
     (node) => Number.isFinite(node.latitude) && Number.isFinite(node.longitude)
   );
@@ -834,7 +920,12 @@ function LeafletNodeMap({ nodes, onSelect, route }) {
       center={center}
       zoom={validNodes.length ? 13 : 8}
       className="h-full w-full"
-      scrollWheelZoom
+      scrollWheelZoom={false}
+      dragging={false}
+      touchZoom={false}
+      doubleClickZoom={false}
+      keyboard={false}
+      zoomControl={false}
     >
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
@@ -867,7 +958,21 @@ function LeafletNodeMap({ nodes, onSelect, route }) {
       })}
       {route?.coordinates?.length > 1 && (
         <>
-          <Polyline positions={route.coordinates} pathOptions={{ color: '#2563eb', weight: 5 }} />
+          {route.riskSegments.length ? route.riskSegments.map(({ segment, risk }) => (
+            <Polyline
+              key={segment.id}
+              positions={routeSegmentPath(segment)}
+              pathOptions={{
+                color: segmentRiskStyle(risk).color,
+                weight: 6,
+                opacity: 0.9,
+                dashArray: risk?.riskLevel === 'UNKNOWN' || !risk ? '8 8' : undefined,
+              }}
+              eventHandlers={{ click: () => onSelectSegment({ segment, risk }) }}
+            />
+          )) : (
+            <Polyline positions={route.coordinates} pathOptions={{ color: '#2563eb', weight: 5 }} />
+          )}
           <CircleMarker center={route.coordinates[0]} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#16a34a', fillOpacity: 1 }} />
           <CircleMarker center={route.coordinates.at(-1)} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }} />
         </>
@@ -876,7 +981,14 @@ function LeafletNodeMap({ nodes, onSelect, route }) {
   );
 }
 
-function RouteSelectionPanel({ loading, error, route, onRouteRequest, onClear }) {
+function RouteSelectionPanel({
+  loading,
+  error,
+  route,
+  onRouteRequest,
+  onClear,
+  selectedSegment,
+}) {
   const [origin, setOrigin] = useState({ name: '', lat: '', lng: '' });
   const [destination, setDestination] = useState({ name: '', lat: '', lng: '' });
   const [geocoding, setGeocoding] = useState(false);
@@ -961,9 +1073,59 @@ function RouteSelectionPanel({ loading, error, route, onRouteRequest, onClear })
         </p>
       )}
       {route && (
-        <p className="mt-3 text-sm font-medium text-secondary-700">
-          Candidate route: {route.distanceKm.toFixed(1)} km · {Math.round(route.durationMinutes)} min estimated travel time.
-        </p>
+        <>
+          <p className="mt-3 text-sm font-medium text-secondary-700">
+            Candidate route: {route.distanceKm.toFixed(1)} km · {Math.round(route.durationMinutes)} min estimated travel time.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-xs" aria-label="Route risk legend">
+            <span className="font-semibold text-secondary-600">Route risk</span>
+            {Object.values(SEGMENT_RISK_STYLES).map(({ color, label }) => (
+              <span key={label} className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />
+                {label}
+              </span>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-secondary-500">
+            {route.riskSegments.length
+              ? 'Risk colors use persisted backend assessments. Unavailable segments are shown in gray.'
+              : 'No persisted road segments matched this route; risk data is unavailable.'}
+          </p>
+          {selectedSegment && (
+            <div className="mt-3 rounded-md border border-secondary-200 bg-secondary-50 p-3 text-sm" aria-label="Selected route segment details">
+              <div className="flex items-center justify-between gap-2">
+                <strong>Segment {selectedSegment.segment.id}</strong>
+                <span className="font-semibold" style={{ color: segmentRiskStyle(selectedSegment.risk).color }}>
+                  {segmentRiskStyle(selectedSegment.risk).label}
+                </span>
+              </div>
+              {selectedSegment.risk ? (
+                <>
+                  <p className="mt-1">Score: {selectedSegment.risk.riskScore ?? 'Unavailable'}</p>
+                  <p className="mt-1 text-xs text-secondary-600">
+                    {selectedSegment.risk.contributingFactors?.length
+                      ? `Factors: ${selectedSegment.risk.contributingFactors
+                        .map((factor) => typeof factor === 'string' ? factor : factor.name ?? factor.description ?? 'Reported factor')
+                        .join(', ')}`
+                      : 'No contributing factors reported.'}
+                  </p>
+                  {selectedSegment.risk.dataQualityWarnings?.length > 0 && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Data note: {selectedSegment.risk.dataQualityWarnings.join(', ')}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-secondary-500">
+                    Assessed {selectedSegment.risk.assessmentTimestamp
+                      ? new Date(selectedSegment.risk.assessmentTimestamp).toLocaleString()
+                      : 'at an unknown time'} · Freshness: {selectedSegment.risk.dataFreshness ?? 'UNKNOWN'}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-xs text-secondary-600">Risk assessment unavailable for this segment.</p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </section>
   );
