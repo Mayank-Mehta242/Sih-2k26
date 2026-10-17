@@ -2,6 +2,7 @@ package Land.Slide.Early.Warn.system.LandSlidebyMayank.Controllers;
 
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadRiskResponse;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadSegmentRequest;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteRiskRequest;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Entity.RoadSegment;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.services.RoadRiskScoringService;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.services.RoadSegmentService;
@@ -42,5 +43,12 @@ public class RoadSegmentController {
     @GetMapping("/{id}/risk")
     public RoadRiskResponse risk(@PathVariable Long id) {
         return riskService.assess(segmentService.findById(id));
+    }
+
+    @PostMapping("/risk/assess")
+    public List<RoadRiskResponse> assessRoute(@Valid @RequestBody RouteRiskRequest request) {
+        return riskService.assessRoute(request.segmentIds().stream()
+                .map(segmentService::findById)
+                .toList());
     }
 }

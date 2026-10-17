@@ -3,6 +3,7 @@ package Land.Slide.Early.Warn.system.LandSlidebyMayank.services;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadSegmentRequest;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Entity.RoadSegment;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Error.BadRequestException;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Error.RoadSegmentNotFoundException;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Repository.RoadSegmentRepository;
 import org.springframework.stereotype.Service;
 
@@ -28,7 +29,7 @@ public class RoadSegmentService {
 
     public RoadSegment findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new BadRequestException("Road segment " + id + " was not found."));
+                .orElseThrow(() -> new RoadSegmentNotFoundException(id));
     }
 
     public RoadSegment update(Long id, RoadSegmentRequest request) {

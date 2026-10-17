@@ -40,6 +40,13 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(RoadSegmentNotFoundException.class)
+    public ResponseEntity<ApiError> handleRoadSegmentNotFound(
+            RoadSegmentNotFoundException ex) {
+        return new ResponseEntity<>(new ApiError(ex.getMessage(), HttpStatus.NOT_FOUND),
+                HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidationError(
             MethodArgumentNotValidException ex) {

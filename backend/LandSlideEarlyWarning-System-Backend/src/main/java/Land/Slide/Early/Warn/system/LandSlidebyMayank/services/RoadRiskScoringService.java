@@ -21,6 +21,7 @@ public class RoadRiskScoringService {
 
     public RoadRiskResponse assess(RoadSegment segment) {
         validateSegment(segment);
+        LocalDateTime assessmentTimestamp = LocalDateTime.now();
 
         List<RiskFactor> factors = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
@@ -75,14 +76,29 @@ public class RoadRiskScoringService {
 
         if (availableWeight == 0) {
             return new RoadRiskResponse(segment.getId(), null, "UNKNOWN",
-                    "INSUFFICIENT_DATA", factors, warnings);
+                    "INSUFFICIENT_DATA", factors, warnings, assessmentTimestamp,
+                    segment.getDataUpdatedAt(), freshness(segment, warnings));
         }
 
         int score = (int) Math.round(Math.max(0, Math.min(100,
                 weightedScore / availableWeight)));
         String status = warnings.isEmpty() ? "COMPLETE" : "PARTIAL";
         return new RoadRiskResponse(segment.getId(), score, riskLevel(score),
-                status, factors, warnings);
+                status, factors, warnings, assessmentTimestamp,
+                segment.getDataUpdatedAt(), freshness(segment, warnings));
+    }
+
+    public List<RoadRiskResponse> assessRoute(List<RoadSegment> segments) {
+        return segments.stream().map(this::assess).toList();
+    }
+
+    private String freshness(RoadSegment segment, List<String> warnings) {
+        if (segment.getDataUpdatedAt() == null) {
+            return "UNKNOWN";
+        }
+        return warnings.stream().anyMatch(warning -> warning.contains("outdated"))
+                ? "STALE"
+                : "FRESH";
     }
 
     private RiskFactor factor(String name, double normalizedValue, double weight) {

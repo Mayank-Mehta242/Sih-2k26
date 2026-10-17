@@ -100,6 +100,21 @@ export async function deleteNode(id) {
   );
 }
 
+export async function getRoadSegments() {
+  return apiFetch('/road-segments');
+}
+
+export async function getRoadSegmentRisk(id) {
+  return apiFetch(`/road-segments/${encodeURIComponent(id)}/risk`);
+}
+
+export async function assessRouteRisk(segmentIds) {
+  return apiFetch('/road-segments/risk/assess', {
+    method: 'POST',
+    body: { segmentIds },
+  });
+}
+
 export async function submitCitizenReport(formData) {
   let response;
   try {
