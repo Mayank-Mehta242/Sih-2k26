@@ -4,6 +4,7 @@ import {
   Circle,
   CircleMarker,
   MapContainer as LeafletMap,
+  Polyline,
   Popup,
   TileLayer,
 } from 'react-leaflet';
@@ -40,6 +41,9 @@ const HEATMAP_RADIUS_PX = 45;
 
 const MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID ?? 'DEMO_MAP_ID';
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const GEOCODING_API_URL =
+  import.meta.env.VITE_GEOCODING_API_URL ??
+  'https://nominatim.openstreetmap.org/search';
 
 const RISK_LEVELS = [
   { key: 'safe', label: 'Safe', color: '#10b981', bg: '#d1fae5', min: 0 },
@@ -57,6 +61,26 @@ function getRiskTier(prob) {
 
 function clamp01(x) {
   return Math.max(0, Math.min(1, x));
+}
+
+async function geocodeLocation(name) {
+  const url = new URL(GEOCODING_API_URL);
+  url.searchParams.set('q', name);
+  url.searchParams.set('format', 'jsonv2');
+  url.searchParams.set('limit', '1');
+
+  const response = await fetch(url);
+  const results = await response.json().catch(() => []);
+  if (!response.ok || !results.length) {
+    throw new Error(`Could not find "${name}". Try a more specific place name.`);
+  }
+
+  const latitude = Number(results[0].lat);
+  const longitude = Number(results[0].lon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error(`The location "${name}" has no usable coordinates.`);
+  }
+  return { lat: latitude, lng: longitude };
 }
 
 function normalize(value, min, max) {
@@ -186,6 +210,7 @@ export default function Map() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const overlaysRef = useRef([]);
+  const routeOverlaysRef = useRef([]);
   const heatLayersRef = useRef([]);
   const googleRef = useRef(null);
   const mapTypeRef = useRef('roadmap');
@@ -199,6 +224,9 @@ export default function Map() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showHeat, setShowHeat] = useState(true);
   const [mapType, setMapType] = useState('roadmap');
+  const [route, setRoute] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState(null);
 
   /* ---------------- fetch ---------------- */
   useEffect(() => {
@@ -236,10 +264,83 @@ export default function Map() {
     };
   }, [attempt]);
 
+  const requestRoute = useCallback(async (origin, destination) => {
+    setRouteLoading(true);
+    setRouteError(null);
+    try {
+      const provider =
+        import.meta.env.VITE_ROUTING_API_URL ??
+        'https://router.project-osrm.org/route/v1/driving';
+      const url = `${provider}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || payload?.code !== 'Ok' || !payload.routes?.length) {
+        throw new Error('No route was found between these locations.');
+      }
+      const candidate = payload.routes[0];
+      setRoute({
+        origin,
+        destination,
+        coordinates: candidate.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
+        distanceKm: candidate.distance / 1000,
+        durationMinutes: candidate.duration / 60,
+      });
+    } catch (err) {
+      setRoute(null);
+      setRouteError(err?.message ?? 'Unable to calculate the route.');
+    } finally {
+      setRouteLoading(false);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    routeOverlaysRef.current.forEach((overlay) => {
+      overlay?.setMap?.(null);
+      if (overlay) overlay.map = null;
+    });
+    routeOverlaysRef.current = [];
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => setAttempt((a) => a + 1), POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !googleRef.current || !route?.coordinates?.length) {
+      return undefined;
+    }
+    const google = googleRef.current;
+    routeOverlaysRef.current.forEach((overlay) => {
+      overlay?.setMap?.(null);
+      if (overlay) overlay.map = null;
+    });
+    routeOverlaysRef.current = [];
+    const polyline = new google.maps.Polyline({
+      path: route.coordinates.map(([lat, lng]) => ({ lat, lng })),
+      geodesic: true,
+      strokeColor: '#2563eb',
+      strokeOpacity: 0.9,
+      strokeWeight: 5,
+      map: mapRef.current,
+    });
+    const originMarker = new google.maps.marker.AdvancedMarkerElement({
+      position: { lat: route.origin.lat, lng: route.origin.lng },
+      map: mapRef.current,
+      title: 'Route origin',
+    });
+    const destinationMarker = new google.maps.marker.AdvancedMarkerElement({
+      position: { lat: route.destination.lat, lng: route.destination.lng },
+      map: mapRef.current,
+      title: 'Route destination',
+    });
+    routeOverlaysRef.current.push(polyline, originMarker, destinationMarker);
+    return () => {
+      polyline.setMap(null);
+      originMarker.map = null;
+      destinationMarker.map = null;
+    };
+  }, [mapReady, route]);
 
   /* ---------------- init map ---------------- */
   useEffect(() => {
@@ -560,6 +661,17 @@ export default function Map() {
             risk.
           </p>
         </div>
+
+        <RouteSelectionPanel
+          loading={routeLoading}
+          error={routeError}
+          route={route}
+          onRouteRequest={requestRoute}
+          onClear={() => {
+            setRoute(null);
+            setRouteError(null);
+          }}
+        />
         <div className="flex items-center gap-2">
           {refreshedAt && (
             <span className="hidden text-xs text-secondary-500 sm:inline">Updated {refreshedAt}</span>
@@ -659,7 +771,7 @@ export default function Map() {
           {GOOGLE_MAPS_KEY ? (
             <div ref={mapContainerRef} className="h-full w-full" />
           ) : (
-            <LeafletNodeMap nodes={nodes} onSelect={setSelected} />
+            <LeafletNodeMap nodes={nodes} onSelect={setSelected} route={route} />
           )}
 
           {!mapReady && !error && (
@@ -709,7 +821,7 @@ export default function Map() {
   );
 }
 
-function LeafletNodeMap({ nodes, onSelect }) {
+function LeafletNodeMap({ nodes, onSelect, route }) {
   const validNodes = nodes.filter(
     (node) => Number.isFinite(node.latitude) && Number.isFinite(node.longitude)
   );
@@ -753,7 +865,107 @@ function LeafletNodeMap({ nodes, onSelect }) {
           </Fragment>
         );
       })}
+      {route?.coordinates?.length > 1 && (
+        <>
+          <Polyline positions={route.coordinates} pathOptions={{ color: '#2563eb', weight: 5 }} />
+          <CircleMarker center={route.coordinates[0]} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#16a34a', fillOpacity: 1 }} />
+          <CircleMarker center={route.coordinates.at(-1)} radius={7} pathOptions={{ color: '#fff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }} />
+        </>
+      )}
     </LeafletMap>
+  );
+}
+
+function RouteSelectionPanel({ loading, error, route, onRouteRequest, onClear }) {
+  const [origin, setOrigin] = useState({ name: '', lat: '', lng: '' });
+  const [destination, setDestination] = useState({ name: '', lat: '', lng: '' });
+  const [geocoding, setGeocoding] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+
+  const resolvePoint = async (point, label) => {
+    if (point.name.trim()) {
+      return geocodeLocation(point.name.trim());
+    }
+    const coordinates = { lat: Number(point.lat), lng: Number(point.lng) };
+    if (!Number.isFinite(coordinates.lat) || !Number.isFinite(coordinates.lng)) {
+      throw new Error(`Enter a ${label} name or both latitude and longitude values.`);
+    }
+    return coordinates;
+  };
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setLocationError(null);
+    setGeocoding(true);
+    try {
+      const values = await Promise.all([
+        resolvePoint(origin, 'origin'),
+        resolvePoint(destination, 'destination'),
+      ]);
+      onRouteRequest(values[0], values[1]);
+    } catch (err) {
+      setLocationError(err?.message ?? 'Could not resolve the route locations.');
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  return (
+    <section className="mt-4 rounded-lg border bg-white p-4 shadow-sm" aria-label="Route selection">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-bold text-secondary-900">Route risk selection</h2>
+          <p className="text-xs text-secondary-500">Enter place names or coordinates for both locations.</p>
+        </div>
+        {route && (
+          <button type="button" onClick={onClear} className="text-xs font-semibold text-secondary-600 hover:text-secondary-900">
+            Clear route
+          </button>
+        )}
+      </div>
+      <form onSubmit={submit} className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+        {[['Origin', origin, setOrigin], ['Destination', destination, setDestination]].map(([label, value, setter]) => (
+          <fieldset key={label} className="grid grid-cols-2 gap-2">
+            <legend className="col-span-2 mb-1 text-xs font-semibold text-secondary-600">{label}</legend>
+            <input
+              type="text"
+              value={value.name}
+              onChange={(event) => setter({ ...value, name: event.target.value })}
+              placeholder={`${label} name (e.g. Dehradun)`}
+              aria-label={`${label} name`}
+              className="col-span-2 rounded-md border border-secondary-300 px-2.5 py-2 text-sm"
+            />
+            {['lat', 'lng'].map((key) => (
+              <input
+                key={key}
+                type="number"
+                step="any"
+                min={key === 'lat' ? -90 : -180}
+                max={key === 'lat' ? 90 : 180}
+                value={value[key]}
+                onChange={(event) => setter({ ...value, [key]: event.target.value })}
+                placeholder={key === 'lat' ? 'Latitude' : 'Longitude'}
+                aria-label={`${label} ${key === 'lat' ? 'latitude' : 'longitude'}`}
+                className="rounded-md border border-secondary-300 px-2.5 py-2 text-sm"
+              />
+            ))}
+          </fieldset>
+        ))}
+        <Button type="submit" disabled={loading || geocoding}>
+          {geocoding ? 'Finding locations…' : loading ? 'Finding route…' : 'Find route'}
+        </Button>
+      </form>
+      {(locationError || error) && (
+        <p className="mt-3 text-sm text-red-600" role="alert">
+          {locationError || error}
+        </p>
+      )}
+      {route && (
+        <p className="mt-3 text-sm font-medium text-secondary-700">
+          Candidate route: {route.distanceKm.toFixed(1)} km · {Math.round(route.durationMinutes)} min estimated travel time.
+        </p>
+      )}
+    </section>
   );
 }
 
