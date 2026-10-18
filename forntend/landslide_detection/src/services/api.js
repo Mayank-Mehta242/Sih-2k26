@@ -115,6 +115,13 @@ export async function assessRouteRisk(segmentIds) {
   });
 }
 
+export async function compareRouteRisk(candidates) {
+  return apiFetch('/road-segments/risk/compare', {
+    method: 'POST',
+    body: { candidates },
+  });
+}
+
 export async function submitCitizenReport(formData) {
   let response;
   try {

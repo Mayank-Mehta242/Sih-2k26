@@ -2,6 +2,7 @@ package Land.Slide.Early.Warn.system.LandSlidebyMayank.Controllers;
 
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadRiskResponse;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RiskFactor;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteComparisonResponse;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Entity.RoadSegment;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Error.GlobalExceptionHandler;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.services.RoadRiskScoringService;
@@ -70,6 +71,33 @@ class RoadSegmentControllerTest {
                                 {"segmentIds":[]}
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void comparesAndRanksCandidateRoutes() throws Exception {
+        when(segmentService.findById(7L)).thenReturn(segment(7L));
+        when(segmentService.findById(8L)).thenReturn(segment(8L));
+        when(riskService.compareRoutes(any())).thenReturn(List.of(
+                new RouteComparisonResponse("route-2", 1, true, 8.0, 14.0,
+                        35, "MODERATE", "COMPLETE", 1, 0, 31.5,
+                        "Risk is an assessment, not a guarantee of safety."),
+                new RouteComparisonResponse("route-1", 2, false, 6.0, 10.0,
+                        null, "UNKNOWN", "INCOMPLETE", 0, 1, null,
+                        "Not recommended: one or more segments have unavailable risk data.")
+        ));
+
+        mvc.perform(post("/road-segments/risk/compare")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"candidates":[
+                                  {"candidateId":"route-1","segmentIds":[7],"distanceKm":6.0,"durationMinutes":10.0},
+                                  {"candidateId":"route-2","segmentIds":[8],"distanceKm":8.0,"durationMinutes":14.0}
+                                ]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].recommended").value(true))
+                .andExpect(jsonPath("$[0].aggregateRiskScore").value(35))
+                .andExpect(jsonPath("$[1].missingSegmentCount").value(1));
     }
 
     private RoadSegment segment(Long id) {

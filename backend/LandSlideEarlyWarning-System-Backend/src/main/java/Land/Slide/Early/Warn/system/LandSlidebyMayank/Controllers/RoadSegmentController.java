@@ -3,6 +3,9 @@ package Land.Slide.Early.Warn.system.LandSlidebyMayank.Controllers;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadRiskResponse;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadSegmentRequest;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteRiskRequest;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteCandidateAssessment;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteComparisonRequest;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteComparisonResponse;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Entity.RoadSegment;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.services.RoadRiskScoringService;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.services.RoadSegmentService;
@@ -49,6 +52,16 @@ public class RoadSegmentController {
     public List<RoadRiskResponse> assessRoute(@Valid @RequestBody RouteRiskRequest request) {
         return riskService.assessRoute(request.segmentIds().stream()
                 .map(segmentService::findById)
+                .toList());
+    }
+
+    @PostMapping("/risk/compare")
+    public List<RouteComparisonResponse> compareRoutes(
+            @Valid @RequestBody RouteComparisonRequest request) {
+        return riskService.compareRoutes(request.candidates().stream()
+                .map(candidate -> new RouteCandidateAssessment(
+                        candidate,
+                        candidate.segmentIds().stream().map(segmentService::findById).toList()))
                 .toList());
     }
 }

@@ -14,5 +14,8 @@ public class RiskScoringProperties {
     private double terrainWeight = 25.0;
     private double incidentsWeight = 20.0;
     private double sensorWeight = 25.0;
+    private double routeRiskWeight = 0.7;
+    private double routeDistanceWeight = 0.2;
+    private double routeDurationWeight = 0.1;
     private int staleAfterHours = 24;
 }

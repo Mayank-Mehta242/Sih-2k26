@@ -33,6 +33,7 @@ import ErrorMessage from '../components/ui/ErrorMessage';
 import {
   API_BASE_URL,
   assessRouteRisk,
+  compareRouteRisk,
   getRoadSegments,
 } from '../services/api';
 
@@ -259,6 +260,7 @@ export default function Map() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState(null);
   const [selectedRouteSegment, setSelectedRouteSegment] = useState(null);
+  const [routeOptions, setRouteOptions] = useState([]);
 
   /* ---------------- fetch ---------------- */
   useEffect(() => {
@@ -303,46 +305,70 @@ export default function Map() {
       const provider =
         import.meta.env.VITE_ROUTING_API_URL ??
         'https://router.project-osrm.org/route/v1/driving';
-      const url = `${provider}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
+      const url = `${provider}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&alternatives=true&geometries=geojson`;
       const response = await fetch(url);
       const payload = await response.json().catch(() => null);
       if (!response.ok || payload?.code !== 'Ok' || !payload.routes?.length) {
         throw new Error('No route was found between these locations.');
       }
-      const candidate = payload.routes[0];
-      let riskSegments = [];
+      const segments = await getRoadSegments().catch(() => []);
+      const candidates = payload.routes.map((candidate, index) => {
+        const coordinates = candidate.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        const riskSegments = segments
+          .map((segment) => ({
+            segment,
+            risk: null,
+          }))
+          .filter(({ segment }) => {
+            const midpoint = [
+              (segment.startLatitude + segment.endLatitude) / 2,
+              (segment.startLongitude + segment.endLongitude) / 2,
+            ];
+            return coordinates.some(([lat, lng]) =>
+              distanceSquared(midpoint, [lat, lng]) < 2500 * 2500
+            );
+          });
+        return {
+          id: `route-${index + 1}`,
+          origin,
+          destination,
+          coordinates,
+          distanceKm: candidate.distance / 1000,
+          durationMinutes: candidate.duration / 60,
+          riskSegments,
+        };
+      });
       try {
-        const segments = await getRoadSegments();
-        if (segments.length) {
-          const risks = await assessRouteRisk(segments.map((segment) => segment.id));
-          riskSegments = segments
-            .map((segment) => ({
+        const comparableCandidates = candidates.filter((candidate) => candidate.riskSegments.length);
+        if (comparableCandidates.length) {
+          const comparisons = await compareRouteRisk(comparableCandidates.map((candidate) => ({
+            candidateId: candidate.id,
+            segmentIds: candidate.riskSegments.map(({ segment }) => segment.id),
+            distanceKm: candidate.distanceKm,
+            durationMinutes: candidate.durationMinutes,
+          })));
+          const assessments = await assessRouteRisk([
+            ...new Set(comparableCandidates.flatMap((candidate) =>
+              candidate.riskSegments.map(({ segment }) => segment.id)
+            )),
+          ]);
+          candidates.forEach((candidate) => {
+            const comparison = comparisons.find((item) => item.candidateId === candidate.id);
+            candidate.comparison = comparison;
+            candidate.riskSegments = candidate.riskSegments.map(({ segment }) => ({
               segment,
-              risk: risks.find((item) => item.segmentId === segment.id),
-            }))
-            .filter(({ segment }) => {
-              const midpoint = [
-                (segment.startLatitude + segment.endLatitude) / 2,
-                (segment.startLongitude + segment.endLongitude) / 2,
-              ];
-              return candidate.geometry.coordinates.some(([lng, lat]) =>
-                distanceSquared(midpoint, [lat, lng]) < 2500 * 2500
-              );
-            });
+              risk: assessments.find((item) => item.segmentId === segment.id),
+            }));
+          });
         }
       } catch {
-        // Route rendering remains useful when the risk database is unavailable.
+        // Route rendering remains useful when comparison data is unavailable.
       }
-      setRoute({
-        origin,
-        destination,
-        coordinates: candidate.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
-        distanceKm: candidate.distance / 1000,
-        durationMinutes: candidate.duration / 60,
-        riskSegments,
-      });
+      setRouteOptions(candidates);
+      setRoute(candidates[0]);
     } catch (err) {
       setRoute(null);
+      setRouteOptions([]);
       setRouteError(err?.message ?? 'Unable to calculate the route.');
     } finally {
       setRouteLoading(false);
@@ -410,9 +436,11 @@ export default function Map() {
     });
     routeOverlaysRef.current.push(originMarker, destinationMarker);
     return () => {
-      polyline.setMap(null);
-      originMarker.map = null;
-      destinationMarker.map = null;
+      routeOverlaysRef.current.forEach((overlay) => {
+        overlay?.setMap?.(null);
+        if (overlay) overlay.map = null;
+      });
+      routeOverlaysRef.current = [];
     };
   }, [mapReady, route]);
 
@@ -744,7 +772,12 @@ export default function Map() {
           loading={routeLoading}
           error={routeError}
           route={route}
+          routeOptions={routeOptions}
           onRouteRequest={requestRoute}
+          onSelectRoute={(candidate) => {
+            setRoute(candidate);
+            setSelectedRouteSegment(null);
+          }}
           onClear={() => {
             setRoute(null);
             setRouteError(null);
@@ -985,9 +1018,11 @@ function RouteSelectionPanel({
   loading,
   error,
   route,
+  routeOptions,
   onRouteRequest,
   onClear,
   selectedSegment,
+  onSelectRoute,
 }) {
   const [origin, setOrigin] = useState({ name: '', lat: '', lng: '' });
   const [destination, setDestination] = useState({ name: '', lat: '', lng: '' });
@@ -1077,6 +1112,46 @@ function RouteSelectionPanel({
           <p className="mt-3 text-sm font-medium text-secondary-700">
             Candidate route: {route.distanceKm.toFixed(1)} km · {Math.round(route.durationMinutes)} min estimated travel time.
           </p>
+          <div className="mt-3 space-y-2" aria-label="Available route alternatives">
+            <p className="text-xs font-semibold text-secondary-600">
+              Route comparison ({routeOptions.length} available)
+            </p>
+            {routeOptions.length < 2 && (
+              <p className="text-xs text-secondary-500">
+                The routing provider returned only one route; no alternative was available for comparison.
+              </p>
+            )}
+            {routeOptions.map((candidate) => {
+              const comparison = candidate.comparison;
+              const selected = candidate.id === route.id;
+              return (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  onClick={() => onSelectRoute(candidate)}
+                  className={`w-full rounded-md border p-2 text-left text-xs ${
+                    selected ? 'border-[#0a2f5a] bg-blue-50' : 'border-secondary-200 bg-white'
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-2 font-semibold">
+                    <span>
+                      {comparison?.recommended ? 'Recommended lower-risk route' : `Alternative ${candidate.id.split('-')[1]}`}
+                    </span>
+                    <span>Rank {comparison?.rank ?? '—'}</span>
+                  </span>
+                  <span className="mt-1 block text-secondary-600">
+                    {candidate.distanceKm.toFixed(1)} km · {Math.round(candidate.durationMinutes)} min
+                    {' · '}
+                    Risk {comparison?.aggregateRiskLevel ?? 'UNAVAILABLE'}
+                    {comparison?.aggregateRiskScore != null ? ` (${comparison.aggregateRiskScore}/100)` : ''}
+                  </span>
+                  <span className="mt-1 block text-secondary-500">
+                    {comparison?.message ?? 'No suitable risk comparison is available for this route.'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
           <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3 text-xs" aria-label="Route risk legend">
             <span className="font-semibold text-secondary-600">Route risk</span>
             {Object.values(SEGMENT_RISK_STYLES).map(({ color, label }) => (

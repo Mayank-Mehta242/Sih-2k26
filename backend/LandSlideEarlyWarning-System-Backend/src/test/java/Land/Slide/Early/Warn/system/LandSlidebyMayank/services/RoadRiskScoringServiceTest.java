@@ -3,10 +3,13 @@ package Land.Slide.Early.Warn.system.LandSlidebyMayank.services;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Entity.RoadSegment;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.config.RiskScoringProperties;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadRiskResponse;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteCandidateAssessment;
+import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteCandidateRequest;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Error.BadRequestException;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -51,6 +54,40 @@ class RoadRiskScoringServiceTest {
         segment.setRecentIncidents(-1);
 
         assertThrows(BadRequestException.class, () -> service.assess(segment));
+    }
+
+    @Test
+    void ranksRoutesByHighestSegmentRiskAndKeepsUnknownRoutesOutOfRecommendation() {
+        RoadSegment low = assessedSegment(10.0);
+        low.setId(1L);
+        RoadSegment unknown = validSegment();
+        unknown.setId(2L);
+
+        var result = service.compareRoutes(List.of(
+                new RouteCandidateAssessment(
+                        new RouteCandidateRequest("fast-unknown", List.of(2L), 5.0, 8.0),
+                        List.of(unknown)),
+                new RouteCandidateAssessment(
+                        new RouteCandidateRequest("slower-low-risk", List.of(1L), 8.0, 14.0),
+                        List.of(low))
+        ));
+
+        assertEquals("slower-low-risk", result.get(0).candidateId());
+        assertTrue(result.get(0).recommended());
+        assertEquals(8, result.get(0).aggregateRiskScore());
+        assertEquals("INCOMPLETE", result.get(1).assessmentStatus());
+        assertFalse(result.get(1).recommended());
+        assertNull(result.get(1).rankingScore());
+    }
+
+    private RoadSegment assessedSegment(double value) {
+        RoadSegment segment = validSegment();
+        segment.setRainfall(value);
+        segment.setTerrainSusceptibility(value);
+        segment.setRecentIncidents(0);
+        segment.setSensorRisk(value);
+        segment.setDataUpdatedAt(LocalDateTime.now());
+        return segment;
     }
 
     private RoadRiskResponse assessWithValue(double value) {
