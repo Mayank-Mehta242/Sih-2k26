@@ -21,6 +21,8 @@ class RoadRiskScoringServiceTest {
         assertEquals("MODERATE", assessWithValue(35).riskLevel());
         assertEquals("HIGH", assessWithValue(60).riskLevel());
         assertEquals("CRITICAL", assessWithValue(90).riskLevel());
+        assertTrue(assessWithValue(60).riskWarnings().get(0).startsWith("HIGH"));
+        assertTrue(assessWithValue(90).riskWarnings().get(0).startsWith("CRITICAL"));
     }
 
     @Test
@@ -41,6 +43,8 @@ class RoadRiskScoringServiceTest {
         assertEquals("UNKNOWN", result.riskLevel());
         assertEquals("INSUFFICIENT_DATA", result.assessmentStatus());
         assertEquals(5, result.dataQualityWarnings().size());
+        assertNotNull(result.assessmentTimestamp());
+        assertTrue(result.explanation().contains("cannot be calculated reliably"));
     }
 
     @Test
@@ -82,6 +86,18 @@ class RoadRiskScoringServiceTest {
     }
 
     @Test
+    void flagsFutureTimestampsAsInvalid() {
+        RoadSegment segment = assessedSegment(20);
+        segment.setDataUpdatedAt(LocalDateTime.now().plusMinutes(5));
+
+        var result = service.assess(segment);
+
+        assertNull(result.riskScore());
+        assertEquals("INVALID", result.dataFreshness());
+        assertTrue(result.dataQualityWarnings().stream().anyMatch(w -> w.contains("future")));
+    }
+
+    @Test
     void ranksRoutesByHighestSegmentRiskAndKeepsUnknownRoutesOutOfRecommendation() {
         RoadSegment low = assessedSegment(10.0);
         low.setId(1L);
@@ -100,6 +116,8 @@ class RoadRiskScoringServiceTest {
         assertEquals("slower-low-risk", result.get(0).candidateId());
         assertTrue(result.get(0).recommended());
         assertEquals(8, result.get(0).aggregateRiskScore());
+        assertNotNull(result.get(0).assessmentTimestamp());
+        assertFalse(result.get(0).message().contains("closure"));
         assertEquals("INCOMPLETE", result.get(1).assessmentStatus());
         assertFalse(result.get(1).recommended());
         assertNull(result.get(1).rankingScore());
