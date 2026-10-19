@@ -1,5 +1,8 @@
 package Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 public record RouteComparisonResponse(
         String candidateId,
         Integer rank,
@@ -12,6 +15,9 @@ public record RouteComparisonResponse(
         int assessedSegmentCount,
         int missingSegmentCount,
         Double rankingScore,
-        String message
+        String message,
+        List<RiskFactor> contributingFactors,
+        List<String> dataQualityWarnings,
+        LocalDateTime assessmentTimestamp
 ) {
 }

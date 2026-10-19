@@ -12,6 +12,8 @@ public record RoadRiskResponse(
         List<String> dataQualityWarnings,
         LocalDateTime assessmentTimestamp,
         LocalDateTime dataUpdatedAt,
-        String dataFreshness
+        String dataFreshness,
+        String explanation,
+        List<String> riskWarnings
 ) {
 }

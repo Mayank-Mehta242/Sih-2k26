@@ -5,7 +5,6 @@ import Land.Slide.Early.Warn.system.LandSlidebyMayank.config.RiskScoringProperti
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RoadRiskResponse;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteCandidateAssessment;
 import Land.Slide.Early.Warn.system.LandSlidebyMayank.Dto.RouteCandidateRequest;
-import Land.Slide.Early.Warn.system.LandSlidebyMayank.Error.BadRequestException;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -25,6 +24,14 @@ class RoadRiskScoringServiceTest {
     }
 
     @Test
+    void keepsRiskCategoryBoundariesInclusive() {
+        assertEquals("LOW", assessWithValue(24).riskLevel());
+        assertEquals("MODERATE", assessWithValue(49).riskLevel());
+        assertEquals("HIGH", assessWithValue(74).riskLevel());
+        assertEquals("CRITICAL", assessWithValue(75).riskLevel());
+    }
+
+    @Test
     void reportsMissingInputsWithoutTreatingThemAsZeroRisk() {
         RoadSegment segment = validSegment();
 
@@ -37,23 +44,41 @@ class RoadRiskScoringServiceTest {
     }
 
     @Test
-    void reportsOutdatedDataAsPartialAssessment() {
+    void withholdsScoreForOutdatedData() {
         RoadSegment segment = validSegment();
         segment.setRainfall(80.0);
         segment.setDataUpdatedAt(LocalDateTime.now().minusDays(2));
 
         var result = service.assess(segment);
 
-        assertEquals("PARTIAL", result.assessmentStatus());
+        assertNull(result.riskScore());
+        assertEquals("INSUFFICIENT_DATA", result.assessmentStatus());
         assertTrue(result.dataQualityWarnings().stream().anyMatch(w -> w.contains("outdated")));
+        assertTrue(result.explanation().contains("withheld"));
     }
 
     @Test
-    void rejectsInvalidInputs() {
+    void flagsInvalidRiskInputsWithoutTreatingThemAsSafe() {
         RoadSegment segment = validSegment();
         segment.setRecentIncidents(-1);
 
-        assertThrows(BadRequestException.class, () -> service.assess(segment));
+        var result = service.assess(segment);
+
+        assertNull(result.riskScore());
+        assertTrue(result.dataQualityWarnings().stream().anyMatch(w -> w.contains("invalid")));
+    }
+
+    @Test
+    void flagsInvalidRainfallAndSensorInputs() {
+        RoadSegment segment = assessedSegment(20);
+        segment.setRainfall(Double.NaN);
+        segment.setSensorRisk(101.0);
+
+        var result = service.assess(segment);
+
+        assertNull(result.riskScore());
+        assertEquals(2, result.dataQualityWarnings().stream()
+                .filter(w -> w.contains("invalid")).count());
     }
 
     @Test

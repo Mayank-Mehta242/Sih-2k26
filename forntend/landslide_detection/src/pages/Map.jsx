@@ -1145,9 +1145,27 @@ function RouteSelectionPanel({
                     Risk {comparison?.aggregateRiskLevel ?? 'UNAVAILABLE'}
                     {comparison?.aggregateRiskScore != null ? ` (${comparison.aggregateRiskScore}/100)` : ''}
                   </span>
+                  {comparison?.aggregateRiskLevel === 'HIGH' || comparison?.aggregateRiskLevel === 'CRITICAL' ? (
+                    <span className="mt-1 block font-semibold text-red-700">
+                      {comparison.aggregateRiskLevel} risk warning — review official guidance.
+                    </span>
+                  ) : null}
                   <span className="mt-1 block text-secondary-500">
                     {comparison?.message ?? 'No suitable risk comparison is available for this route.'}
                   </span>
+                  {comparison?.dataQualityWarnings?.length > 0 && (
+                    <span className="mt-1 block text-amber-700">
+                      Data quality: {comparison.dataQualityWarnings.join(', ')}
+                    </span>
+                  )}
+                  {comparison?.contributingFactors?.length > 0 && (
+                    <span className="mt-1 block text-secondary-600">
+                      Main factors: {comparison.contributingFactors
+                        .slice(0, 3)
+                        .map((factor) => factor.name)
+                        .join(', ')}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1189,6 +1207,14 @@ function RouteSelectionPanel({
                       Data note: {selectedSegment.risk.dataQualityWarnings.join(', ')}
                     </p>
                   )}
+                  {selectedSegment.risk.riskWarnings?.length > 0 && (
+                    <p className="mt-1 rounded bg-red-50 p-2 text-xs font-semibold text-red-800">
+                      Risk warning: {selectedSegment.risk.riskWarnings.join(', ')}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-secondary-700">
+                    {selectedSegment.risk.explanation ?? 'No explanation was provided for this assessment.'}
+                  </p>
                   <p className="mt-1 text-xs text-secondary-500">
                     Assessed {selectedSegment.risk.assessmentTimestamp
                       ? new Date(selectedSegment.risk.assessmentTimestamp).toLocaleString()

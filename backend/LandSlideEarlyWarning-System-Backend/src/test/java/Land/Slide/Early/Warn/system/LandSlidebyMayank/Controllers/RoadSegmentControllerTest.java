@@ -80,10 +80,13 @@ class RoadSegmentControllerTest {
         when(riskService.compareRoutes(any())).thenReturn(List.of(
                 new RouteComparisonResponse("route-2", 1, true, 8.0, 14.0,
                         35, "MODERATE", "COMPLETE", 1, 0, 31.5,
-                        "Risk is an assessment, not a guarantee of safety."),
+                        "Risk is an assessment, not a guarantee of safety.",
+                        List.of(new RiskFactor("Rainfall", 10.5, "Rainfall contribution.")),
+                        List.of(), LocalDateTime.now()),
                 new RouteComparisonResponse("route-1", 2, false, 6.0, 10.0,
                         null, "UNKNOWN", "INCOMPLETE", 0, 1, null,
-                        "Not recommended: one or more segments have unavailable risk data.")
+                        "Not recommended: one or more segments have unavailable risk data.",
+                        List.of(), List.of("Rainfall data is missing."), LocalDateTime.now())
         ));
 
         mvc.perform(post("/road-segments/risk/compare")
@@ -114,6 +117,7 @@ class RoadSegmentControllerTest {
     private RoadRiskResponse response(Long id) {
         return new RoadRiskResponse(id, 68, "HIGH", "COMPLETE",
                 List.of(new RiskFactor("rainfall", 20.4, "Rainfall contribution.")),
-                List.of(), LocalDateTime.now(), LocalDateTime.now(), "FRESH");
+                List.of(), LocalDateTime.now(), LocalDateTime.now(), "FRESH",
+                "Reliable risk inputs produce a high risk score.", List.of("HIGH risk warning."));
     }
 }

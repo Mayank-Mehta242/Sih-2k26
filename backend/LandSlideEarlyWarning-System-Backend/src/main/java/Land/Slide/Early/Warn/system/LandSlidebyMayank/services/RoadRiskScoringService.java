@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,63 +36,77 @@ public class RoadRiskScoringService {
         double availableWeight = 0;
 
         if (segment.getRainfall() != null) {
-            double value = validateRange("rainfall", segment.getRainfall(), 0, 100);
-            weightedScore += value * properties.getRainfallWeight();
-            availableWeight += properties.getRainfallWeight();
-            factors.add(factor("rainfall", value, properties.getRainfallWeight()));
+            Double value = validMeasurement("rainfall", segment.getRainfall(), 0, 100, warnings);
+            if (value != null) {
+                weightedScore += value * properties.getRainfallWeight();
+                availableWeight += properties.getRainfallWeight();
+                factors.add(factor("Rainfall", value, properties.getRainfallWeight()));
+            }
         } else {
-            warnings.add("Rainfall data is missing.");
+            warnings.add("Rainfall data is missing; this factor cannot support a safe assessment.");
         }
 
         if (segment.getTerrainSusceptibility() != null) {
-            double value = validateRange("terrainSusceptibility", segment.getTerrainSusceptibility(), 0, 100);
-            weightedScore += value * properties.getTerrainWeight();
-            availableWeight += properties.getTerrainWeight();
-            factors.add(factor("terrainSusceptibility", value, properties.getTerrainWeight()));
+            Double value = validMeasurement("terrain susceptibility", segment.getTerrainSusceptibility(), 0, 100, warnings);
+            if (value != null) {
+                weightedScore += value * properties.getTerrainWeight();
+                availableWeight += properties.getTerrainWeight();
+                factors.add(factor("Terrain susceptibility", value, properties.getTerrainWeight()));
+            }
         } else {
-            warnings.add("Terrain susceptibility data is missing.");
+            warnings.add("Terrain susceptibility data is missing; this factor cannot support a safe assessment.");
         }
 
         if (segment.getRecentIncidents() != null) {
-            if (segment.getRecentIncidents() < 0) {
-                throw new BadRequestException("recentIncidents cannot be negative.");
+            Double value = validMeasurement("recent incidents", segment.getRecentIncidents(), 0, Double.MAX_VALUE, warnings);
+            if (value != null) {
+                value = Math.min(value * 25.0, 100.0);
+                weightedScore += value * properties.getIncidentsWeight();
+                availableWeight += properties.getIncidentsWeight();
+                factors.add(factor("Recent incidents", value, properties.getIncidentsWeight()));
             }
-            double value = Math.min(segment.getRecentIncidents() * 25.0, 100.0);
-            weightedScore += value * properties.getIncidentsWeight();
-            availableWeight += properties.getIncidentsWeight();
-            factors.add(factor("recentIncidents", value, properties.getIncidentsWeight()));
         } else {
-            warnings.add("Recent incident data is missing.");
+            warnings.add("Recent incident data is missing; this factor cannot support a safe assessment.");
         }
 
         if (segment.getSensorRisk() != null) {
-            double value = validateRange("sensorRisk", segment.getSensorRisk(), 0, 100);
-            weightedScore += value * properties.getSensorWeight();
-            availableWeight += properties.getSensorWeight();
-            factors.add(factor("sensorRisk", value, properties.getSensorWeight()));
+            Double value = validMeasurement("sensor risk", segment.getSensorRisk(), 0, 100, warnings);
+            if (value != null) {
+                weightedScore += value * properties.getSensorWeight();
+                availableWeight += properties.getSensorWeight();
+                factors.add(factor("Sensor risk", value, properties.getSensorWeight()));
+            }
         } else {
-            warnings.add("Sensor readings are missing.");
+            warnings.add("Sensor readings are missing; this factor cannot support a safe assessment.");
         }
 
         if (segment.getDataUpdatedAt() == null) {
             warnings.add("Data timestamp is missing; freshness cannot be verified.");
+        } else if (segment.getDataUpdatedAt().isAfter(assessmentTimestamp)) {
+            warnings.add("Data timestamp is in the future and cannot be trusted.");
         } else if (segment.getDataUpdatedAt().isBefore(
-                LocalDateTime.now().minusHours(properties.getStaleAfterHours()))) {
-            warnings.add("Risk data is outdated.");
+                assessmentTimestamp.minusHours(properties.getStaleAfterHours()))) {
+            warnings.add("Risk data is outdated and cannot support a reliable route recommendation.");
         }
 
-        if (availableWeight == 0) {
+        if (availableWeight == 0 || !warnings.isEmpty()) {
+            String explanation = availableWeight == 0
+                    ? "Risk score cannot be calculated reliably because no valid, fresh risk inputs are available."
+                    : "Risk score is withheld because one or more risk inputs are missing, invalid, or not fresh enough.";
             return new RoadRiskResponse(segment.getId(), null, "UNKNOWN",
                     "INSUFFICIENT_DATA", factors, warnings, assessmentTimestamp,
-                    segment.getDataUpdatedAt(), freshness(segment, warnings));
+                    segment.getDataUpdatedAt(), freshness(segment, warnings), explanation, List.of());
         }
 
         int score = (int) Math.round(Math.max(0, Math.min(100,
                 weightedScore / availableWeight)));
-        String status = warnings.isEmpty() ? "COMPLETE" : "PARTIAL";
+        List<String> riskWarnings = riskWarnings(score);
         return new RoadRiskResponse(segment.getId(), score, riskLevel(score),
-                status, factors, warnings, assessmentTimestamp,
-                segment.getDataUpdatedAt(), freshness(segment, warnings));
+                "COMPLETE", factors, warnings, assessmentTimestamp,
+                segment.getDataUpdatedAt(), freshness(segment, warnings),
+                "Reliable risk inputs produce a " + riskLevel(score).toLowerCase()
+                        + " risk score; this is an assessment, not a road-closure confirmation.",
+                riskWarnings);
     }
 
     public List<RoadRiskResponse> assessRoute(List<RoadSegment> segments) {
@@ -147,10 +162,13 @@ public class RoadRiskScoringService {
         return ranked.stream().map(route -> {
             RouteCandidateRequest request = route.candidate().request();
             boolean complete = route.missingSegmentCount() == 0;
+            boolean recommended = route.rankingScore() != null
+                    && route.rankingScore().equals(ranked.get(0).rankingScore())
+                    && request.candidateId().equals(recommendedId);
             return new RouteComparisonResponse(
                     request.candidateId(),
                     ranks.get(request.candidateId()),
-                    request.candidateId().equals(recommendedId),
+                    recommended,
                     request.distanceKm(),
                     request.durationMinutes(),
                     route.aggregateRiskScore(),
@@ -161,7 +179,10 @@ public class RoadRiskScoringService {
                     route.rankingScore(),
                     complete
                             ? "Risk is an assessment, not a guarantee of safety."
-                            : "Not recommended: one or more segments have unavailable risk data."
+                            : "Not recommended: one or more segments have unavailable or unreliable risk data.",
+                    route.contributingFactors(),
+                    route.dataQualityWarnings(),
+                    route.assessmentTimestamp()
             );
         }).toList();
     }
@@ -171,7 +192,8 @@ public class RoadRiskScoringService {
         int missing = (int) assessments.stream().filter(response -> response.riskScore() == null).count();
         if (missing > 0) {
             return new RankedRoute(candidate, null, null, null,
-                    assessments.size() - missing, missing);
+                    assessments.size() - missing, missing, factors(assessments),
+                    warnings(assessments), latestAssessment(assessments));
         }
         int aggregate = assessments.stream()
             .mapToInt(response -> response.riskScore() == null ? 100 : response.riskScore())
@@ -183,7 +205,8 @@ public class RoadRiskScoringService {
                 + distanceScore * properties.getRouteDistanceWeight()
                 + durationScore * properties.getRouteDurationWeight();
         return new RankedRoute(candidate, aggregate, riskLevel(aggregate), rankingScore,
-                assessments.size(), 0);
+                assessments.size(), 0, factors(assessments), warnings(assessments),
+                latestAssessment(assessments));
     }
 
     private record RankedRoute(
@@ -192,13 +215,19 @@ public class RoadRiskScoringService {
             String aggregateRiskLevel,
             Double rankingScore,
             int assessedSegmentCount,
-            int missingSegmentCount
+            int missingSegmentCount,
+            List<RiskFactor> contributingFactors,
+            List<String> dataQualityWarnings,
+            LocalDateTime assessmentTimestamp
     ) {
     }
 
     private String freshness(RoadSegment segment, List<String> warnings) {
         if (segment.getDataUpdatedAt() == null) {
             return "UNKNOWN";
+        }
+        if (warnings.stream().anyMatch(warning -> warning.contains("future"))) {
+            return "INVALID";
         }
         return warnings.stream().anyMatch(warning -> warning.contains("outdated"))
                 ? "STALE"
@@ -207,7 +236,49 @@ public class RoadRiskScoringService {
 
     private RiskFactor factor(String name, double normalizedValue, double weight) {
         return new RiskFactor(name, Math.round(normalizedValue * weight) / 100.0,
-                "Input risk " + Math.round(normalizedValue) + "/100; weight " + weight + "%.");
+                name + " contributes " + Math.round(normalizedValue * weight) / 100.0
+                        + " points from an input risk of " + Math.round(normalizedValue) + "/100.");
+    }
+
+    private Double validMeasurement(String name, double value, double min, double max,
+                                    List<String> warnings) {
+        if (!Double.isFinite(value) || value < min || value > max) {
+            warnings.add(name + " data is invalid and was excluded from scoring.");
+            return null;
+        }
+        return value;
+    }
+
+    private List<String> riskWarnings(int score) {
+        if (score >= 75) {
+            return List.of("CRITICAL risk warning: avoid relying on this segment without official guidance.");
+        }
+        if (score >= 50) {
+            return List.of("HIGH risk warning: use caution and check current official road guidance.");
+        }
+        return List.of();
+    }
+
+    private List<RiskFactor> factors(List<RoadRiskResponse> assessments) {
+        return assessments.stream()
+                .flatMap(assessment -> assessment.contributingFactors().stream())
+                .sorted(Comparator.comparingDouble((RiskFactor factor) -> factor.contribution()).reversed())
+                .toList();
+    }
+
+    private List<String> warnings(List<RoadRiskResponse> assessments) {
+        return assessments.stream()
+                .flatMap(assessment -> assessment.dataQualityWarnings().stream())
+                .distinct()
+                .toList();
+    }
+
+    private LocalDateTime latestAssessment(List<RoadRiskResponse> assessments) {
+        return assessments.stream()
+                .map(assessment -> assessment.assessmentTimestamp())
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
     }
 
     private String riskLevel(int score) {
