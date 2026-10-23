@@ -74,10 +74,6 @@ export default function GovFooter() {
               An integrated landslide monitoring, risk assessment and early-warning platform for
               Himalayan districts — designed for citizens, responders and authorities.
             </p>
-            <p className="mt-4 rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-200">
-              Student project / demonstration platform. Not an official Government of India or
-              Government of Uttarakhand website. All monitoring data shown is simulated.
-            </p>
           </div>
 
           {COLUMNS.map((column) => (

@@ -19,6 +19,7 @@ public class LandSlideReports {
     private String Description;
     private double latitude;
     private double longitude;
+    @Column(columnDefinition = "TEXT")
     private String imageUrl;
     @Column(nullable = false)
     private String approvalStatus = "PENDING";
@@ -26,6 +27,8 @@ public class LandSlideReports {
     private LocalDateTime reviewedAt;
     @Column(columnDefinition = "TEXT")
     private String reviewNote;
+    private boolean aiDetected;
+    private double aiConfidence;
 
     public LandSlideReports() {
     }

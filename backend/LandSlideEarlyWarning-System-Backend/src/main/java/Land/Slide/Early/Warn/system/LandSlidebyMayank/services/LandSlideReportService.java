@@ -44,8 +44,6 @@ public class LandSlideReportService {
     private static final String MODEL_API =
             "https://user-camera-model-api-main.onrender.com/predict-disaster";
 
-    private static final double MIN_CONFIDENCE = 0.60;
-
     public ResponseDto createReport(LandSlideReportDto landSlideReportDto) {
 
         MultipartFile image = landSlideReportDto.getImage();
@@ -95,21 +93,8 @@ public class LandSlideReportService {
                 throw new RuntimeException("Invalid response from AI model");
             }
 
-            if (!landslide) {
-                throw new BadRequestException(
-                        "Report rejected: the AI model did not detect a landslide in this image."
-                );
-            }
-
-            if (confidence.doubleValue() < MIN_CONFIDENCE) {
-                throw new BadRequestException(
-                        "Report rejected: landslide confidence ("
-                                + String.format("%.2f", confidence.doubleValue() * 100)
-                                + "%) is below the required "
-                                + String.format("%.0f", MIN_CONFIDENCE * 100)
-                                + "% threshold."
-                );
-            }
+            // AI screening is advisory. Uncertain images are sent to the admin
+            // review queue instead of being rejected before human review.
 
             String imageUrl = cloudinaryService.uploadImage(image);
 
@@ -121,6 +106,8 @@ public class LandSlideReportService {
             report.setLongitude(landSlideReportDto.getLongitude());
             report.setImageUrl(imageUrl);
             report.setApprovalStatus("PENDING");
+            report.setAiDetected(landslide);
+            report.setAiConfidence(confidence.doubleValue());
 
             LandSlideReports saved = landSlideReportRepository.save(report);
 
