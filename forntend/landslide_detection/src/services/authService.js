@@ -2,6 +2,10 @@ import { ApiError, TOKEN_KEY, simulateDelay } from './api';
 
 const MOCK_ROLE = 'field-officer';
 
+function roleFromEmail(email) {
+  return email.trim().toLowerCase().startsWith('admin') ? 'admin' : MOCK_ROLE;
+}
+
 /**
  * Mock tokens are signed-looking strings ("mock.<base64 user>") so that
  * getMe() can restore the session after a page refresh, exactly like a real
@@ -34,14 +38,14 @@ const authService = {
   async login({ email, password }) {
     // TODO(backend): POST /api/auth/login — verify credentials, return JWT.
     await simulateDelay();
-    const user = { id: 'usr-001', name: nameFromEmail(email), email, role: MOCK_ROLE };
+    const user = { id: 'usr-001', name: nameFromEmail(email), email, role: roleFromEmail(email) };
     return { user, token: encodeToken(user) };
   },
 
   async register({ name, email }) {
     // TODO(backend): POST /api/auth/register — create account, return JWT.
     await simulateDelay();
-    const user = { id: 'usr-001', name: name.trim(), email, role: MOCK_ROLE };
+    const user = { id: 'usr-001', name: name.trim(), email, role: roleFromEmail(email) };
     return { user, token: encodeToken(user) };
   },
 

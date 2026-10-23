@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 
 @Service
 public class LandSlideReportService {
@@ -27,14 +28,17 @@ public class LandSlideReportService {
     private final LandSlideReportRepository landSlideReportRepository;
     private final CloudinaryService cloudinaryService;
     private final RestTemplate restTemplate;
+    private final SmsService smsService;
 
     public LandSlideReportService(
             LandSlideReportRepository landSlideReportRepository,
             CloudinaryService cloudinaryService,
-            RestTemplate restTemplate) {
+            RestTemplate restTemplate,
+            SmsService smsService) {
         this.landSlideReportRepository = landSlideReportRepository;
         this.cloudinaryService = cloudinaryService;
         this.restTemplate = restTemplate;
+        this.smsService = smsService;
     }
 
     private static final String MODEL_API =
@@ -116,6 +120,7 @@ public class LandSlideReportService {
             report.setLatitude(landSlideReportDto.getLatitude());
             report.setLongitude(landSlideReportDto.getLongitude());
             report.setImageUrl(imageUrl);
+            report.setApprovalStatus("PENDING");
 
             LandSlideReports saved = landSlideReportRepository.save(report);
 
@@ -134,5 +139,28 @@ public class LandSlideReportService {
 
     public List<LandSlideReports> getAllReports() {
         return landSlideReportRepository.findAll();
+    }
+
+    public LandSlideReports approveReport(long id, String reviewedBy, String reviewNote) {
+        LandSlideReports report = reviewReport(id, "APPROVED", reviewedBy, reviewNote);
+        smsService.sendAdminSms(String.format(
+                "Landslide incident #%d approved. Location: %.5f, %.5f. Description: %s",
+                report.getId(), report.getLatitude(), report.getLongitude(),
+                report.getDescription() == null ? "No description" : report.getDescription()));
+        return report;
+    }
+
+    public LandSlideReports rejectReport(long id, String reviewedBy, String reviewNote) {
+        return reviewReport(id, "REJECTED", reviewedBy, reviewNote);
+    }
+
+    private LandSlideReports reviewReport(long id, String status, String reviewedBy, String reviewNote) {
+        LandSlideReports report = landSlideReportRepository.findById(id)
+                .orElseThrow(() -> new BadRequestException("Report not found: " + id));
+        report.setApprovalStatus(status);
+        report.setReviewedBy(reviewedBy);
+        report.setReviewedAt(LocalDateTime.now());
+        report.setReviewNote(reviewNote);
+        return landSlideReportRepository.save(report);
     }
 }

@@ -1,11 +1,13 @@
  import { useEffect, useMemo, useState } from 'react';
-import { BellOff, ExternalLink, Loader2, MapPin, Phone, Search, User, X } from 'lucide-react';
+import { BellOff, Check, ExternalLink, Loader2, MapPin, MessageSquare, Phone, Search, User, X } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Skeleton } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import ErrorMessage from '../../components/ui/ErrorMessage';
 import { API_BASE_URL } from '../../services/api';
+import { apiFetch } from '../../services/api';
+import useAuth from '../../hooks/useAuth';
 
 const REPORTS_ENDPOINT = `${API_BASE_URL}/landslide-report/getAllReports`;
 
@@ -27,6 +29,7 @@ const formatCoords = (lat, lon) => {
  * at the report's exact coordinates.
  */
 export default function Alerts() {
+  const { user } = useAuth();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -90,6 +93,26 @@ export default function Alerts() {
 
   const total = reports.length;
   const withPhoto = reports.filter((r) => r.imageUrl).length;
+  const isAdmin = user?.role === 'admin';
+
+  async function reviewReport(id, decision) {
+    await apiFetch(`${API_BASE_URL}/landslide-report/${id}/${decision}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    setReports((current) => current.map((report) =>
+      report.id === id
+        ? { ...report, approvalStatus: decision === 'approve' ? 'APPROVED' : 'REJECTED', reviewedBy: user.email }
+        : report
+    ));
+    setSelectedReport((current) => current?.id === id
+      ? { ...current, approvalStatus: decision === 'approve' ? 'APPROVED' : 'REJECTED', reviewedBy: user.email }
+      : current);
+  }
+
+  async function sendSms(id) {
+    await apiFetch(`${API_BASE_URL}/landslide-report/${id}/send-sms`, { method: 'POST' });
+  }
 
   return (
     <div>
@@ -166,6 +189,9 @@ export default function Alerts() {
               key={report.id}
               report={report}
               onOpen={() => setSelectedReport(report)}
+              isAdmin={isAdmin}
+              onReview={reviewReport}
+              onSms={sendSms}
             />
           ))}
         </div>
@@ -185,7 +211,7 @@ export default function Alerts() {
 /* Card                                                                */
 /* ------------------------------------------------------------------ */
 
-function ReportCard({ report, onOpen }) {
+function ReportCard({ report, onOpen, isAdmin, onReview, onSms }) {
   const description = report.Description ?? report.description ?? 'No description provided.';
   const coords = formatCoords(report.latitude, report.longitude);
   const mapsUrl = coords ? buildMapsUrl(report.latitude, report.longitude) : null;
@@ -218,6 +244,7 @@ function ReportCard({ report, onOpen }) {
                 {report.name?.trim() || 'Anonymous reporter'}
               </h3>
             </div>
+            <StatusBadge status={report.approvalStatus} />
           </div>
 
           <p className="mt-2 line-clamp-2 text-sm text-secondary-700">{description}</p>
@@ -248,6 +275,21 @@ function ReportCard({ report, onOpen }) {
                 See on map
                 <ExternalLink className="h-3 w-3 opacity-70" aria-hidden="true" />
               </a>
+            )}
+            {isAdmin && report.approvalStatus === 'PENDING' && (
+              <>
+                <Button size="sm" onClick={() => onReview(report.id, 'approve')}>
+                  <Check className="mr-1 h-4 w-4" /> Approve
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onReview(report.id, 'reject')}>
+                  Reject
+                </Button>
+              </>
+            )}
+            {isAdmin && (
+              <Button size="sm" variant="outline" onClick={() => onSms(report.id)}>
+                <MessageSquare className="mr-1 h-4 w-4" /> Send SMS
+              </Button>
             )}
           </div>
         </div>
@@ -382,6 +424,14 @@ function ReportDetailModal({ report, onClose }) {
               {description}
             </div>
           </div>
+
+          <div className="sm:col-span-2">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-secondary-500">Review status</p>
+            <div className="rounded-lg border bg-secondary-50/60 p-3 text-sm">
+              <StatusBadge status={report.approvalStatus} />
+              {report.reviewedBy && <span className="ml-2 text-secondary-600">by {report.reviewedBy}</span>}
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 border-t bg-secondary-50/60 px-6 py-4">
@@ -392,4 +442,14 @@ function ReportDetailModal({ report, onClose }) {
       </div>
     </div>
   );
+}
+
+function StatusBadge({ status }) {
+  const value = status ?? 'PENDING';
+  const styles = {
+    PENDING: 'bg-amber-100 text-amber-800',
+    APPROVED: 'bg-emerald-100 text-emerald-800',
+    REJECTED: 'bg-red-100 text-red-800',
+  };
+  return <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-bold ${styles[value] ?? styles.PENDING}`}>{value}</span>;
 }

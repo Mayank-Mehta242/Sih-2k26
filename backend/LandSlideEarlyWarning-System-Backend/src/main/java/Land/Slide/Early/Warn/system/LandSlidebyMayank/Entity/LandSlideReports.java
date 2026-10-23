@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @Entity
@@ -18,6 +20,12 @@ public class LandSlideReports {
     private double latitude;
     private double longitude;
     private String imageUrl;
+    @Column(nullable = false)
+    private String approvalStatus = "PENDING";
+    private String reviewedBy;
+    private LocalDateTime reviewedAt;
+    @Column(columnDefinition = "TEXT")
+    private String reviewNote;
 
     public LandSlideReports() {
     }
